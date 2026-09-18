@@ -8,7 +8,7 @@
   "conflictsWith": [],
   "provides": ["durable-rate-limit", "usage-quota"],
   "configurationSchema": "./schemas/config.json",
-  "migrations": ["limits-001"],
+  "migrations": ["limits-001", "limits-002"],
   "generatedPaths": ["src/flower/limits.ts"],
   "requiredChecks": ["durable-limits-contract"]
 }

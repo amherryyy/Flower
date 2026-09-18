@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "limits-002",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["limits-001"],
+  "verificationQueries": [
+    {
+      "id": "retention-function-service-only",
+      "sql": "select not has_function_privilege('public', 'flower_private.prune_limit_counters(integer,integer,integer)', 'execute') and not has_function_privilege('anon', 'flower_private.prune_limit_counters(integer,integer,integer)', 'execute') and not has_function_privilege('authenticated', 'flower_private.prune_limit_counters(integer,integer,integer)', 'execute') and has_function_privilege('service_role', 'flower_private.prune_limit_counters(integer,integer,integer)', 'execute') as verified;",
+      "expected": true
+    },
+    {
+      "id": "retention-function-security-definer",
+      "sql": "select prosecdef from pg_proc where oid = 'flower_private.prune_limit_counters(integer,integer,integer)'::regprocedure;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Revoke and drop flower_private.prune_limit_counters(integer, integer, integer). Existing counters and counters already pruned by prior calls are not changed.",
+  "rls": {
+    "tables": [],
+    "mode": "not-applicable"
+  }
+}

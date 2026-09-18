@@ -7,6 +7,9 @@
     "rateLimitWindowSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
     "rateLimitRequests": { "type": "integer", "minimum": 1 },
     "quotaPeriod": { "enum": ["day", "month"] },
-    "quotaUnits": { "type": "integer", "minimum": 1 }
+    "quotaUnits": { "type": "integer", "minimum": 1 },
+    "rateLimitRetentionDays": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "usageRetentionDays": { "type": "integer", "minimum": 1, "maximum": 3650 },
+    "retentionBatchSize": { "type": "integer", "minimum": 1, "maximum": 10000 }
   }
 }

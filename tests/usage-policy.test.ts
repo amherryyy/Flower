@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   enforceDurableUsagePolicy,
   hashRateLimitSubject,
+  pruneDurableUsageCounters,
   UsagePolicyError,
   type PostgresMigrationClient,
   type PostgresQueryResult
@@ -122,5 +123,52 @@ describe("durable rate limits and usage quotas", () => {
     await expect(enforceDurableUsagePolicy(client, baseRequest)).rejects.toEqual(
       expect.objectContaining<Partial<UsagePolicyError>>({ code: "usage.unavailable" })
     );
+  });
+
+  it("prunes expired counters through a bounded service-role operation", async () => {
+    const client = new UsageClient();
+    client.responses.push({ rate_limit_deleted: "125", usage_deleted: 40 });
+    await expect(pruneDurableUsageCounters(client, {
+      rateLimitRetentionDays: 7,
+      usageRetentionDays: 90,
+      batchSize: 500
+    })).resolves.toEqual({ rateLimitDeleted: 125, usageDeleted: 40 });
+    expect(client.calls).toEqual([expect.objectContaining({
+      text: expect.stringContaining("prune_limit_counters"),
+      values: [7, 90, 500]
+    })]);
+  });
+
+  it("rejects unsafe retention bounds before touching storage", async () => {
+    const client = new UsageClient();
+    await expect(pruneDurableUsageCounters(client, {
+      rateLimitRetentionDays: 0,
+      usageRetentionDays: 90,
+      batchSize: 500
+    })).rejects.toEqual(expect.objectContaining({ code: "usage.invalidRequest" }));
+    await expect(pruneDurableUsageCounters(client, {
+      rateLimitRetentionDays: 7,
+      usageRetentionDays: 90,
+      batchSize: 10_001
+    })).rejects.toEqual(expect.objectContaining({ code: "usage.invalidRequest" }));
+    expect(client.calls).toHaveLength(0);
+  });
+
+  it("fails closed for invalid or unavailable retention results", async () => {
+    const invalid = new UsageClient();
+    invalid.responses.push({ rate_limit_deleted: -1, usage_deleted: 0 });
+    await expect(pruneDurableUsageCounters(invalid, {
+      rateLimitRetentionDays: 7,
+      usageRetentionDays: 90,
+      batchSize: 500
+    })).rejects.toEqual(expect.objectContaining({ code: "usage.invalidResponse" }));
+
+    const unavailable = new UsageClient();
+    unavailable.error = new Error("database offline");
+    await expect(pruneDurableUsageCounters(unavailable, {
+      rateLimitRetentionDays: 7,
+      usageRetentionDays: 90,
+      batchSize: 500
+    })).rejects.toEqual(expect.objectContaining({ code: "usage.unavailable" }));
   });
 });

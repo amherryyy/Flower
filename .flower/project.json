@@ -67,7 +67,8 @@
     "lockfileIntegrityVerification": true,
     "licenseAllowlist": true,
     "immutableCiActions": true,
-    "liveDependencyAuditCi": true
+    "liveDependencyAuditCi": true,
+    "boundedCounterRetention": true
   },
   "quality": {
     "minimumCoverage": 80,

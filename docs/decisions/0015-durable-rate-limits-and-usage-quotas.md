@@ -22,4 +22,4 @@ The kernel hashes rate-limit subjects with HMAC-SHA-256 and requires a server-on
 
 Limits are consistent across application instances and concurrent consumers serialize on the relevant counter row. Applications remain responsible for authenticating protected routes, selecting limit values, choosing a stable operation or metric identifier, mapping denials to protocol responses, and keeping the HMAC secret server-only.
 
-Counter retention is deployment-specific and remains required operational work. This checkout verifies package integrity, SQL structure, privileges, planning, and the adapter contract without claiming live PostgreSQL concurrency certification.
+Decision 0019 adds a bounded service-role retention operation. Deployments still own its schedule and retention values. This checkout verifies package integrity, SQL structure, privileges, planning, and the adapter contract without claiming live PostgreSQL concurrency certification.

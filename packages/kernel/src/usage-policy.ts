@@ -35,10 +35,26 @@ export interface DurableUsagePolicyDecision {
   quota?: { remaining: number; resetAt: string };
 }
 
+export interface LimitCounterRetentionPolicy {
+  rateLimitRetentionDays: number;
+  usageRetentionDays: number;
+  batchSize: number;
+}
+
+export interface LimitCounterRetentionResult {
+  rateLimitDeleted: number;
+  usageDeleted: number;
+}
+
 interface CounterRow extends Record<string, unknown> {
   allowed: unknown;
   remaining: unknown;
   reset_at: unknown;
+}
+
+interface RetentionRow extends Record<string, unknown> {
+  rate_limit_deleted: unknown;
+  usage_deleted: unknown;
 }
 
 export class UsagePolicyError extends Error {
@@ -151,5 +167,35 @@ export async function enforceDurableUsagePolicy(
   } catch (error) {
     if (error instanceof UsagePolicyError) throw error;
     throw new UsagePolicyError("Durable usage policy storage is unavailable", "usage.unavailable", error);
+  }
+}
+
+export async function pruneDurableUsageCounters(
+  client: PostgresMigrationClient,
+  policy: LimitCounterRetentionPolicy
+): Promise<LimitCounterRetentionResult> {
+  assertPositiveInteger(policy.rateLimitRetentionDays, "rateLimitRetentionDays");
+  assertPositiveInteger(policy.usageRetentionDays, "usageRetentionDays");
+  assertPositiveInteger(policy.batchSize, "batchSize");
+  if (policy.rateLimitRetentionDays > 3650 || policy.usageRetentionDays > 3650) {
+    throw new UsagePolicyError("Retention days must not exceed 3650", "usage.invalidRequest");
+  }
+  if (policy.batchSize > 10_000) {
+    throw new UsagePolicyError("Retention batchSize must not exceed 10000", "usage.invalidRequest");
+  }
+  try {
+    const response = await client.query<RetentionRow>(
+      "select rate_limit_deleted, usage_deleted from flower_private.prune_limit_counters($1, $2, $3);",
+      [policy.rateLimitRetentionDays, policy.usageRetentionDays, policy.batchSize]
+    );
+    const rateLimitDeleted = counterValue(response.rows[0]?.rate_limit_deleted);
+    const usageDeleted = counterValue(response.rows[0]?.usage_deleted);
+    if (rateLimitDeleted === undefined || usageDeleted === undefined) {
+      throw new UsagePolicyError("PostgreSQL returned an invalid counter-retention result", "usage.invalidResponse");
+    }
+    return { rateLimitDeleted, usageDeleted };
+  } catch (error) {
+    if (error instanceof UsagePolicyError) throw error;
+    throw new UsagePolicyError("Durable counter-retention storage is unavailable", "usage.unavailable", error);
   }
 }
