@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "limits-001",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["organizations-002"],
+  "verificationQueries": [
+    {
+      "id": "limit-tables-fail-closed",
+      "sql": "select count(*) = 2 as verified from pg_class where oid in ('public.flower_rate_limit_buckets'::regclass, 'public.flower_usage_counters'::regclass) and relrowsecurity;",
+      "expected": true
+    },
+    {
+      "id": "limit-functions-service-only",
+      "sql": "select not has_function_privilege('public', 'flower_private.consume_rate_limit(text,text,text,integer,integer,integer)', 'execute') and not has_function_privilege('authenticated', 'flower_private.consume_rate_limit(text,text,text,integer,integer,integer)', 'execute') and has_function_privilege('service_role', 'flower_private.consume_rate_limit(text,text,text,integer,integer,integer)', 'execute') and not has_function_privilege('public', 'flower_private.consume_usage_quota(text,uuid,text,text,bigint,bigint)', 'execute') and not has_function_privilege('authenticated', 'flower_private.consume_usage_quota(text,uuid,text,text,bigint,bigint)', 'execute') and has_function_privilege('service_role', 'flower_private.consume_usage_quota(text,uuid,text,text,bigint,bigint)', 'execute') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Revoke and drop the two service-only consume functions, then drop flower_usage_counters and flower_rate_limit_buckets. Export or intentionally discard active counters before rollback.",
+  "rls": {
+    "tables": ["public.flower_rate_limit_buckets", "public.flower_usage_counters"],
+    "mode": "deny-by-default"
+  }
+}

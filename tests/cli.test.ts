@@ -76,7 +76,7 @@ describe("flower CLI", () => {
     };
     expect(output.valid).toBe(true);
     expect(output.project).toEqual(expect.objectContaining({ id: "flower-framework", mode: "framework" }));
-    expect(output.modules).toEqual(["audit", "auth", "cli", "kernel", "organizations", "rbac"]);
+    expect(output.modules).toEqual(["audit", "auth", "cli", "kernel", "limits", "organizations", "rbac"]);
     expect(output.ownershipRules).toBeGreaterThan(0);
   });
 

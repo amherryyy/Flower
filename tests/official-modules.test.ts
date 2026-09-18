@@ -54,12 +54,13 @@ async function initializedProject(): Promise<string> {
 }
 
 describe("official module catalog", () => {
-  it("loads four valid, digest-protected packages", async () => {
+  it("loads five valid, digest-protected packages", async () => {
     const catalog = await officialCatalog();
-    expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "organizations", "rbac"]);
+    expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "limits", "organizations", "rbac"]);
     const expectedMigrations: Record<string, string[]> = {
       audit: ["audit-001", "audit-002"],
       auth: [],
+      limits: ["limits-001"],
       organizations: ["organizations-001", "organizations-002"],
       rbac: ["rbac-001", "rbac-002", "rbac-003"]
     };
@@ -74,12 +75,12 @@ describe("official module catalog", () => {
 
   it("resolves the documented capability graph deterministically", async () => {
     const catalog = await officialCatalog();
-    const resolution = resolveModules(catalog.map(({ manifest }) => manifest), ["rbac", "audit"]);
+    const resolution = resolveModules(catalog.map(({ manifest }) => manifest), ["rbac", "audit", "limits"]);
     expect(resolution.valid).toBe(true);
     expect(resolution.diagnostics).toEqual([]);
-    expect(resolution.requested).toEqual(["audit", "rbac"]);
-    expect(resolution.resolved).toEqual(["auth", "organizations", "rbac", "audit"]);
-    const migrationPlan = createMigrationPlan(catalog, ["rbac", "audit"]);
+    expect(resolution.requested).toEqual(["audit", "limits", "rbac"]);
+    expect(resolution.resolved).toEqual(["auth", "organizations", "rbac", "audit", "limits"]);
+    const migrationPlan = createMigrationPlan(catalog, ["rbac", "audit", "limits"]);
     expect(migrationPlan.actions.map(({ id }) => id)).toEqual([
       "organizations-001",
       "organizations-002",
@@ -87,7 +88,8 @@ describe("official module catalog", () => {
       "rbac-002",
       "rbac-003",
       "audit-001",
-      "audit-002"
+      "audit-002",
+      "limits-001"
     ]);
   });
 
@@ -102,7 +104,9 @@ describe("official module catalog", () => {
     expect(sql).toContain("create table public.roles");
     expect(sql).toContain("create table public.role_permissions");
     expect(sql).toContain("create table public.audit_events");
-    expect(sql.match(/enable row level security/g)).toHaveLength(5);
+    expect(sql).toContain("create table public.flower_rate_limit_buckets");
+    expect(sql).toContain("create table public.flower_usage_counters");
+    expect(sql.match(/enable row level security/g)).toHaveLength(7);
     expect(sql).toContain("foreign key (organization_id, role_id)");
     expect(sql.match(/create policy/g)).toHaveLength(5);
     expect(sql).not.toContain("for all");
@@ -110,13 +114,16 @@ describe("official module catalog", () => {
     expect(sql).toContain("organization % must retain at least one owner");
     expect(sql).toContain("create function flower_private.create_organization(");
     expect(sql).toContain("create function flower_private.remove_organization_member(");
+    expect(sql).toContain("create function flower_private.consume_rate_limit(");
+    expect(sql).toContain("create function flower_private.consume_usage_quota(");
+    expect(sql).toContain("to service_role");
   });
 
   it("composes, guards dependencies, removes, and ejects a golden project", async () => {
     const projectRoot = await initializedProject();
     const catalog = await officialCatalog();
-    const addPlan = await createModuleAddPlan(projectRoot, ["rbac", "audit"], catalog);
-    expect(addPlan.resolved).toEqual(["auth", "organizations", "rbac", "audit"]);
+    const addPlan = await createModuleAddPlan(projectRoot, ["rbac", "audit", "limits"], catalog);
+    expect(addPlan.resolved).toEqual(["auth", "organizations", "rbac", "audit", "limits"]);
     await applyModuleAddPlan(addPlan, catalog);
 
     const project = await json(path.join(projectRoot, ".flower/project.json")) as { modules: Record<string, string> };
@@ -124,11 +131,12 @@ describe("official module catalog", () => {
       modules: Record<string, { digest: string }>;
       generatedFiles: Record<string, string>;
     };
-    expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0", audit: "1.0.0", rbac: "1.0.0" });
-    expect(Object.keys(lock.modules).sort()).toEqual(["audit", "auth", "organizations", "rbac"]);
+    expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0", audit: "1.0.0", limits: "1.0.0", rbac: "1.0.0" });
+    expect(Object.keys(lock.modules).sort()).toEqual(["audit", "auth", "limits", "organizations", "rbac"]);
     expect(Object.keys(lock.generatedFiles).sort()).toEqual([
       "src/flower/audit.ts",
       "src/flower/auth.ts",
+      "src/flower/limits.ts",
       "src/flower/organizations.ts",
       "src/flower/rbac.ts"
     ]);
@@ -138,6 +146,7 @@ describe("official module catalog", () => {
 
     await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "audit", "eject", catalog), catalog);
     await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "rbac", "remove", catalog), catalog);
+    await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "limits", "remove", catalog), catalog);
     const finalProject = await json(path.join(projectRoot, ".flower/project.json")) as { modules: Record<string, string> };
     const ownership = await json(path.join(projectRoot, ".flower/ownership.json")) as {
       rules: Array<{ pattern: string; owner: string }>;

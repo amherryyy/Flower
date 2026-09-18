@@ -1,0 +1,14 @@
+{
+  "$schema": "https://flower.dev/schemas/module/v1.json",
+  "schemaVersion": 1,
+  "id": "limits",
+  "version": "1.0.0",
+  "compatibleFlower": ">=0.1.0 <0.2.0",
+  "dependsOn": { "organizations": "^1.0.0" },
+  "conflictsWith": [],
+  "provides": ["durable-rate-limit", "usage-quota"],
+  "configurationSchema": "./schemas/config.json",
+  "migrations": ["limits-001"],
+  "generatedPaths": ["src/flower/limits.ts"],
+  "requiredChecks": ["durable-limits-contract"]
+}

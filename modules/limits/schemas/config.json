@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flower limits module configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "rateLimitWindowSeconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
+    "rateLimitRequests": { "type": "integer", "minimum": 1 },
+    "quotaPeriod": { "enum": ["day", "month"] },
+    "quotaUnits": { "type": "integer", "minimum": 1 }
+  }
+}

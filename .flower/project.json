@@ -22,6 +22,7 @@
     "auth": "1.0.0",
     "cli": "0.1.0",
     "kernel": "0.1.0",
+    "limits": "1.0.0",
     "organizations": "1.0.0",
     "rbac": "1.0.0"
   },
@@ -52,7 +53,10 @@
     "finalOwnerEnforcement": true,
     "versionedSecurityBaseline": true,
     "offlineSecurityGate": true,
-    "secureApplicationHeaders": true
+    "secureApplicationHeaders": true,
+    "durableRateLimits": true,
+    "usageQuotas": true,
+    "failClosedLimitStorage": true
   },
   "quality": {
     "minimumCoverage": 80,

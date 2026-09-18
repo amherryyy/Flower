@@ -43,7 +43,7 @@ class RlsCatalogClient implements PostgresMigrationClient {
     const state = this.states.get(table) ?? {
       relation_exists: true,
       rls_enabled: true,
-      policy_count: 1,
+      policy_count: table.startsWith("public.flower_") ? 0 : 1,
       public_select: false,
       public_insert: false,
       public_update: false,

@@ -14,7 +14,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - a checksum-verified thin Next.js/Supabase template;
 - versioned module-manifest validation and deterministic read-only dependency resolution;
 - transactional module add, remove, and eject operations;
-- official `auth`, `organizations`, `rbac`, and `audit` capability contracts;
+- official `auth`, `organizations`, `rbac`, `audit`, and `limits` capability contracts;
 - checksummed SQL migration packages and deterministic migration planning;
 - transactionally applied PostgreSQL migrations behind a driver-neutral client port;
 - a node-postgres-compatible pooled-session adapter;
@@ -24,6 +24,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - explicit membership, RBAC, and audit-read policies plus an actor/tenant scenario runner;
 - narrow authorization-management workflows with database-enforced final-owner protection;
 - a versioned offline security baseline with redacted secret, dependency, lockfile, and application-header checks;
+- durable PostgreSQL rate limits and per-user or per-organization usage quotas with no in-memory fallback;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -79,7 +80,7 @@ The target must be missing or empty. Repeating the same initialization against a
 
 Module packages use a strict manifest, a module-local configuration schema, and generator sources under `generators/<generated-path>`. `flower add` resolves the full dependency graph before writes, verifies package and source digests, enforces generated-path ownership, updates the project manifest and lock together, and rolls back generated files and control metadata on failure. The bundled catalog is used by default; `--catalog` can select a fixture or alternate local catalog.
 
-The official catalog contains `auth`, `organizations`, `rbac`, and `audit`. The F3 integration contracts declare capabilities, dependencies, configuration shapes, generated boundaries, and checks. F4 migrations create organizations, memberships, organization-scoped roles and permissions, and audit events. Read policies expose organization and RBAC data only to explicit members; audit reads additionally require `audit.read`. Ordinary application roles receive no policy for security-state writes or audit insertion.
+The official catalog contains `auth`, `organizations`, `rbac`, `audit`, and `limits`. The integration contracts declare capabilities, dependencies, configuration shapes, generated boundaries, and checks. F4 migrations create organizations, memberships, organization-scoped roles and permissions, audit events, durable fixed-window rate-limit buckets, and daily or monthly usage counters. Read policies expose organization and RBAC data only to explicit members; audit reads additionally require `audit.read`. Ordinary application roles receive no policy for security-state writes, audit insertion, or limit-counter access.
 
 The F4 migration layer maps each manifest migration id to one non-empty `migrations/<id>.sql` file and one schema-validated `migrations/<id>.json` descriptor. SQL and descriptor digests participate in module package identity. Descriptors declare provider, transaction support, destructive classification, migration dependencies, rollback guidance, verification queries, and RLS expectations. Plans order migrations by the module graph and declared dependencies; destructive actions require explicit per-migration approval.
 
@@ -89,10 +90,12 @@ The RLS inspection harness reads PostgreSQL catalogs and checks every descriptor
 
 Authorization-state tables still have no direct application-role write policies. Instead, private security-definer workflows atomically create an organization with its owner, create roles, manage permissions and memberships, and assign roles after checking explicit organization permissions. Deferred constraint triggers protect direct privileged mutations too: an organization cannot commit without at least one membership whose role carries `organization.owner`.
 
+The `limits` module exposes service-role-only security-definer functions for rate limits and usage quotas. Counter updates lock one deterministic bucket row, so concurrent application instances share the same decision. Rate-limit subjects are HMAC-SHA-256 digests produced with a server-only secret; raw IP addresses or tokens are not stored. The kernel fails closed on storage errors and deliberately has no in-memory fallback. Applications choose policy values and map denials to their HTTP or job protocol.
+
 The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so policy and workflow SQL plus the behavior state machine are tested here without claiming a live tenant-isolation result. Isolated live execution and seeded member/outsider/anonymous/service-role cases remain required F4 work.
 
 `flower remove` refuses modules required by another installed module and deletes only generated files that still match their recorded checksums. `flower eject` has the same dependency guard but deliberately preserves current file contents—including project modifications—and transfers each path to exact project ownership. Both commands support dry-run/JSON plans, project-state preconditions, rollback, and local journals.
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, and a deterministic offline security gate. Live database proof, online advisory and license integrations, durable rate limiting, upload enforcement, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, a deterministic offline security gate, and durable rate limits and quotas. Live database proof, counter-retention automation, online advisory and license integrations, upload enforcement, workflow adapters, adoption, and framework updates remain later slices.
