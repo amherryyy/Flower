@@ -36,6 +36,16 @@ export interface SecurityBaseline {
     enabled: boolean;
     policyPath: string;
   };
+  logging: {
+    enabled: boolean;
+    include: string[];
+    forbidConsole: boolean;
+    forbiddenKeys: string[];
+    redactedKeys: string[];
+    allowedKeys: string[];
+    maxAttributeDepth: number;
+    maxEventBytes: number;
+  };
 }
 
 export interface SecurityCheckResult {
@@ -46,6 +56,7 @@ export interface SecurityCheckResult {
     packageManifestsScanned: number;
     headersChecked: number;
     uploadPolicyChecked: boolean;
+    loggingFilesChecked: number;
     vulnerabilityDatabase: "not-configured";
   };
 }

@@ -21,3 +21,4 @@ export * from "./security.js";
 export * from "./usage-policy.js";
 export * from "./upload.js";
 export * from "./service-role.js";
+export * from "./logging.js";

@@ -35,7 +35,17 @@ function project(options: { headers?: boolean } = {}): string {
       required: [{ name: "X-Content-Type-Options", value: "nosniff" }],
       forbiddenContentSecurityPolicyTokens: ["'unsafe-eval'"]
     },
-    uploads: { enabled: false, policyPath: ".flower/uploads.json" }
+    uploads: { enabled: false, policyPath: ".flower/uploads.json" },
+    logging: {
+      enabled: true,
+      include: ["src/**"],
+      forbidConsole: true,
+      forbiddenKeys: ["body", "prompt", "messages"],
+      redactedKeys: ["secret", "email"],
+      allowedKeys: ["code", "count", "status"],
+      maxAttributeDepth: 8,
+      maxEventBytes: 16384
+    }
   }, null, 2));
   writeFileSync(path.join(directory, "package.json"), JSON.stringify({ dependencies: { example: "^1.0.0" } }));
   writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
@@ -85,5 +95,18 @@ describe("offline security baseline", () => {
     expect(result.secure).toBe(false);
     expect(result.summary.uploadPolicyChecked).toBe(true);
     expect(result.diagnostics.some((entry) => entry.path.includes(".flower/uploads.json"))).toBe(true);
+  });
+
+  it("blocks direct console calls and forbidden structured logging fields", async () => {
+    const directory = project();
+    mkdirSync(path.join(directory, "src"));
+    writeFileSync(path.join(directory, "src/unsafe.ts"), "console.log(request.body);\nlogger.info({ prompt: input });\n");
+    const result = await checkProjectSecurity(directory, await schema());
+    expect(result.secure).toBe(false);
+    expect(result.summary.loggingFilesChecked).toBe(1);
+    expect(result.diagnostics.map((entry) => entry.code)).toEqual(expect.arrayContaining([
+      "security.logging.console",
+      "security.logging.forbiddenField"
+    ]));
   });
 });

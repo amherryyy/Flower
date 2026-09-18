@@ -4,7 +4,7 @@
   "title": "Flower Security Baseline",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "secretScan", "dependencies", "headers", "uploads"],
+  "required": ["schemaVersion", "secretScan", "dependencies", "headers", "uploads", "logging"],
   "properties": {
     "$schema": { "type": "string", "format": "uri-reference" },
     "schemaVersion": { "const": 1 },
@@ -65,6 +65,40 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "policyPath": { "type": "string", "minLength": 1 }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "include", "forbidConsole", "forbiddenKeys", "redactedKeys", "allowedKeys", "maxAttributeDepth", "maxEventBytes"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "include": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "forbidConsole": { "type": "boolean" },
+        "forbiddenKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" }
+        },
+        "redactedKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" }
+        },
+        "allowedKeys": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]*$" }
+        },
+        "maxAttributeDepth": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "maxEventBytes": { "type": "integer", "minimum": 256, "maximum": 1048576 }
       }
     }
   }

@@ -24,7 +24,9 @@
     "offlineSecurityGate": true,
     "secureApplicationHeaders": true,
     "versionedUploadPolicy": true,
-    "serviceRoleClientAbsentByDefault": true
+    "serviceRoleClientAbsentByDefault": true,
+    "structuredLoggingPolicy": true,
+    "requestBodyLoggingPrevention": true
   },
   "quality": {
     "minimumCoverage": 80,

@@ -59,7 +59,10 @@
     "failClosedLimitStorage": true,
     "validatedUploads": true,
     "allowlistedServiceRoleOperations": true,
-    "serviceRoleAuditMetadata": true
+    "serviceRoleAuditMetadata": true,
+    "structuredLogging": true,
+    "personalDataRedaction": true,
+    "requestBodyLoggingPrevention": true
   },
   "quality": {
     "minimumCoverage": 80,

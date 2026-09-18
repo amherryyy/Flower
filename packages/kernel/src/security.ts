@@ -207,6 +207,41 @@ async function scanUploadPolicy(
   }
 }
 
+async function scanLogging(
+  root: string,
+  files: string[],
+  baseline: SecurityBaseline,
+  diagnostics: Diagnostic[]
+): Promise<number> {
+  if (!baseline.logging.enabled) return 0;
+  const includes = baseline.logging.include.map(globExpression);
+  const sourceFiles = files.filter((file) =>
+    includes.some((pattern) => pattern.test(file)) && /\.(?:[cm]?[jt]sx?)$/.test(file)
+  );
+  for (const relative of sourceFiles) {
+    const content = await readFile(path.join(root, relative), "utf8");
+    if (baseline.logging.forbidConsole) {
+      const consoleCall = /\bconsole\.(?:debug|error|info|log|trace|warn)\s*\(/g;
+      for (const match of content.matchAll(consoleCall)) {
+        const line = content.slice(0, match.index).split(/\r?\n/).length;
+        diagnostics.push(diagnostic("security.logging.console", `${relative}:${line}`, "Direct console logging is forbidden; use the structured logger."));
+      }
+    }
+    const objectLogCall = /\b(?:debug|error|info|log|trace|warn)\s*\(\s*\{([\s\S]{0,4096}?)\}\s*\)/g;
+    for (const match of content.matchAll(objectLogCall)) {
+      const attributes = match[1] ?? "";
+      for (const key of baseline.logging.forbiddenKeys) {
+        const keyPattern = new RegExp(`(?:^|[,\\s])(?:["']${key}["']|${key})\\s*:`, "i");
+        if (keyPattern.test(attributes)) {
+          const line = content.slice(0, match.index).split(/\r?\n/).length;
+          diagnostics.push(diagnostic("security.logging.forbiddenField", `${relative}:${line}`, `Logging field '${key}' is forbidden.`));
+        }
+      }
+    }
+  }
+  return sourceFiles.length;
+}
+
 export async function checkProjectSecurity(
   projectRoot: string,
   baselineSchema: object,
@@ -219,6 +254,7 @@ export async function checkProjectSecurity(
     packageManifestsScanned: 0,
     headersChecked: 0,
     uploadPolicyChecked: false,
+    loggingFilesChecked: 0,
     vulnerabilityDatabase: "not-configured"
   };
   let baselineDocument: unknown;
@@ -246,16 +282,17 @@ export async function checkProjectSecurity(
       summary: emptySummary
     };
   }
-  const [filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked] = await Promise.all([
+  const [filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, loggingFilesChecked] = await Promise.all([
     scanSecrets(root, files, baseline, diagnostics),
     scanDependencies(root, files, baseline, diagnostics),
     scanHeaders(root, baseline, diagnostics),
-    scanUploadPolicy(root, baseline, uploadPolicySchema, diagnostics)
+    scanUploadPolicy(root, baseline, uploadPolicySchema, diagnostics),
+    scanLogging(root, files, baseline, diagnostics)
   ]);
   diagnostics.sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code));
   return {
     secure: diagnostics.length === 0,
     diagnostics,
-    summary: { filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, vulnerabilityDatabase: "not-configured" }
+    summary: { filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, loggingFilesChecked, vulnerabilityDatabase: "not-configured" }
   };
 }

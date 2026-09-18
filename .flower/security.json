@@ -26,5 +26,15 @@
   "uploads": {
     "enabled": false,
     "policyPath": ".flower/uploads.json"
+  },
+  "logging": {
+    "enabled": true,
+    "include": ["packages/**", "modules/**", "templates/**"],
+    "forbidConsole": true,
+    "forbiddenKeys": ["body", "requestBody", "rawBody", "prompt", "messages", "formData"],
+    "redactedKeys": ["password", "secret", "token", "authorization", "cookie", "apiKey", "privateKey", "email", "phone", "address", "ip", "userAgent"],
+    "allowedKeys": ["action", "code", "count", "durationMs", "errorCode", "method", "moduleId", "operation", "outcome", "path", "planId", "status", "table"],
+    "maxAttributeDepth": 8,
+    "maxEventBytes": 16384
   }
 }

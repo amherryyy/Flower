@@ -128,7 +128,17 @@ describe("flower CLI", () => {
       secretScan: { maxFileBytes: 1048576, exclude: [] },
       dependencies: { requireLockfile: true, forbidUnpinnedTags: true, forbidRemoteSources: true },
       headers: { enabled: false, file: "next.config.ts", required: [], forbiddenContentSecurityPolicyTokens: [] },
-      uploads: { enabled: false, policyPath: ".flower/uploads.json" }
+      uploads: { enabled: false, policyPath: ".flower/uploads.json" },
+      logging: {
+        enabled: false,
+        include: [],
+        forbidConsole: true,
+        forbiddenKeys: ["body"],
+        redactedKeys: ["secret"],
+        allowedKeys: ["code"],
+        maxAttributeDepth: 8,
+        maxEventBytes: 16384
+      }
     }));
     const result = run("security", "check", "--project", directory, "--json");
     expect(result.status).toBe(6);

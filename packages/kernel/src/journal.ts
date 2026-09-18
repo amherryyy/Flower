@@ -7,7 +7,7 @@ const SENSITIVE_KEY = /^(?:.*(?:password|secret|token|credential|authorization|c
 
 function redactString(value: string): string {
   return value
-    .replace(/\b(?:sk|ghp|gho|ghu|ghs|ghr|sb_secret)_[A-Za-z0-9_-]+\b/g, "[REDACTED]")
+    .replace(/\b(?:sk-[A-Za-z0-9_-]+|(?:ghp|gho|ghu|ghs|ghr|sb_secret)_[A-Za-z0-9_-]+)\b/g, "[REDACTED]")
     .replace(/\bBearer\s+[^\s]+/gi, "Bearer [REDACTED]")
     .replace(/(postgres(?:ql)?:\/\/[^:\s/]+:)[^@\s]+@/gi, "$1[REDACTED]@");
 }
