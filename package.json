@@ -14,7 +14,8 @@
     "typecheck": "npm run build -w @flower/kernel && npm run typecheck -w @flower/kernel && npm run typecheck -w @flower/cli",
     "test": "npm run build && vitest run",
     "flower": "node packages/cli/dist/index.js",
-    "flower:security": "npm run flower -- security check"
+    "flower:security": "npm run flower -- security check",
+    "audit:dependencies": "npm audit --audit-level=high"
   },
   "engines": {
     "node": ">=22"

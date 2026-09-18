@@ -82,8 +82,9 @@ async function scanDependencies(
   files: string[],
   baseline: SecurityBaseline,
   diagnostics: Diagnostic[]
-): Promise<number> {
+): Promise<{ manifests: number; lockfilePackages: number }> {
   const manifests = files.filter((file) => path.basename(file) === "package.json");
+  let lockfilePackages = 0;
   for (const manifest of manifests) {
     try {
       const document = JSON.parse(await readFile(path.join(root, manifest), "utf8")) as Record<string, unknown>;
@@ -105,16 +106,88 @@ async function scanDependencies(
       diagnostics.push(diagnostic("security.dependency.lockfileMissing", "package-lock.json", "A root package-lock.json is required."));
     } else {
       try {
-        const lock = JSON.parse(await readFile(path.join(root, "package-lock.json"), "utf8")) as { lockfileVersion?: unknown };
+        const lock = JSON.parse(await readFile(path.join(root, "package-lock.json"), "utf8")) as {
+          lockfileVersion?: unknown;
+          packages?: Record<string, { integrity?: unknown; license?: unknown; link?: unknown }>;
+        };
         if (typeof lock.lockfileVersion !== "number" || lock.lockfileVersion < 2) {
           diagnostics.push(diagnostic("security.dependency.lockfileVersion", "package-lock.json", "The npm lockfile must use lockfileVersion 2 or newer."));
+        }
+        if (baseline.dependencies.requireIntegrity && (!lock.packages || typeof lock.packages !== "object" || Array.isArray(lock.packages))) {
+          diagnostics.push(diagnostic("security.dependency.lockfilePackagesMissing", "package-lock.json#/packages", "The npm lockfile package map is required for integrity verification."));
+        }
+        for (const [packagePath, metadata] of Object.entries(lock.packages ?? {})) {
+          if (!packagePath.startsWith("node_modules/") || metadata.link === true) continue;
+          lockfilePackages += 1;
+          const target = `package-lock.json#/packages/${packagePath}`;
+          if (baseline.dependencies.requireIntegrity) {
+            if (typeof metadata.integrity !== "string") {
+              diagnostics.push(diagnostic("security.dependency.integrityMissing", target, "Installed registry package is missing an integrity digest."));
+            } else if (!/^sha(?:256|384|512)-[A-Za-z0-9+/=]+$/.test(metadata.integrity)) {
+              diagnostics.push(diagnostic("security.dependency.integrityInvalid", target, "Installed registry package has an unsupported integrity digest."));
+            }
+          }
+          if (typeof metadata.license !== "string" || metadata.license.length === 0) {
+            if (baseline.dependencies.unknownLicense === "error") {
+              diagnostics.push(diagnostic("security.dependency.licenseMissing", target, "Installed registry package does not declare a license."));
+            }
+          } else if (!baseline.dependencies.allowedLicenses.includes(metadata.license)) {
+            diagnostics.push(diagnostic("security.dependency.licenseDenied", target, `License '${metadata.license}' is not in the project allowlist.`));
+          }
         }
       } catch (error) {
         diagnostics.push(diagnostic("security.dependency.invalidLockfile", "package-lock.json", error instanceof Error ? error.message : "Package lockfile is invalid."));
       }
     }
   }
-  return manifests.length;
+  return { manifests: manifests.length, lockfilePackages };
+}
+
+async function scanCi(
+  root: string,
+  files: string[],
+  baseline: SecurityBaseline,
+  diagnostics: Diagnostic[]
+): Promise<number> {
+  if (!baseline.ci.enabled) return 0;
+  const includes = baseline.ci.include.map(globExpression);
+  const workflows = files.filter((file) => includes.some((pattern) => pattern.test(file)));
+  if (workflows.length === 0) {
+    diagnostics.push(diagnostic("security.ci.workflowMissing", ".github/workflows", "No CI workflow matches the configured include patterns."));
+    return 0;
+  }
+  let auditCommandFound = false;
+  let readOnlyContentsFound = false;
+  const expectedAuditCommand = `npm audit --audit-level=${baseline.dependencies.auditLevel}`;
+  if (baseline.ci.dependencyAuditCommand !== expectedAuditCommand) {
+    diagnostics.push(diagnostic("security.ci.auditThresholdMismatch", ".flower/security.json#/ci/dependencyAuditCommand", `Dependency audit command must enforce the configured '${baseline.dependencies.auditLevel}' threshold.`));
+  }
+  for (const relative of workflows) {
+    const content = await readFile(path.join(root, relative), "utf8");
+    auditCommandFound ||= content.includes(baseline.ci.dependencyAuditCommand);
+    readOnlyContentsFound ||= /(?:^|\r?\n)permissions:\s*\r?\n(?:[ \t]+[^\r\n]+\r?\n)*?[ \t]+contents:\s*read\s*(?:#.*)?(?:\r?\n|$)/m.test(content);
+    if (baseline.ci.requireActionCommitPins) {
+      for (const match of content.matchAll(/\buses:\s*([^\s#]+)@([^\s#]+)/g)) {
+        const action = match[1]!;
+        const reference = match[2]!;
+        if (action.startsWith("./")) continue;
+        const immutable = action.startsWith("docker://")
+          ? /^sha256:[a-f0-9]{64}$/i.test(reference)
+          : /^[a-f0-9]{40}$/i.test(reference);
+        if (!immutable) {
+          const line = content.slice(0, match.index).split(/\r?\n/).length;
+          diagnostics.push(diagnostic("security.ci.actionNotPinned", `${relative}:${line}`, `Action '${action}' must use a full immutable commit digest.`));
+        }
+      }
+    }
+  }
+  if (!auditCommandFound) {
+    diagnostics.push(diagnostic("security.ci.auditMissing", ".github/workflows", `CI must run '${baseline.ci.dependencyAuditCommand}'.`));
+  }
+  if (baseline.ci.requireReadOnlyContents && !readOnlyContentsFound) {
+    diagnostics.push(diagnostic("security.ci.permissions", ".github/workflows", "CI must explicitly default GITHUB_TOKEN contents permission to read-only."));
+  }
+  return workflows.length;
 }
 
 async function scanSecrets(
@@ -252,6 +325,8 @@ export async function checkProjectSecurity(
   const emptySummary: SecurityCheckResult["summary"] = {
     filesScanned: 0,
     packageManifestsScanned: 0,
+    lockfilePackagesChecked: 0,
+    workflowFilesChecked: 0,
     headersChecked: 0,
     uploadPolicyChecked: false,
     loggingFilesChecked: 0,
@@ -282,9 +357,10 @@ export async function checkProjectSecurity(
       summary: emptySummary
     };
   }
-  const [filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, loggingFilesChecked] = await Promise.all([
+  const [filesScanned, dependencySummary, workflowFilesChecked, headersChecked, uploadPolicyChecked, loggingFilesChecked] = await Promise.all([
     scanSecrets(root, files, baseline, diagnostics),
     scanDependencies(root, files, baseline, diagnostics),
+    scanCi(root, files, baseline, diagnostics),
     scanHeaders(root, baseline, diagnostics),
     scanUploadPolicy(root, baseline, uploadPolicySchema, diagnostics),
     scanLogging(root, files, baseline, diagnostics)
@@ -293,6 +369,15 @@ export async function checkProjectSecurity(
   return {
     secure: diagnostics.length === 0,
     diagnostics,
-    summary: { filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, loggingFilesChecked, vulnerabilityDatabase: "not-configured" }
+    summary: {
+      filesScanned,
+      packageManifestsScanned: dependencySummary.manifests,
+      lockfilePackagesChecked: dependencySummary.lockfilePackages,
+      workflowFilesChecked,
+      headersChecked,
+      uploadPolicyChecked,
+      loggingFilesChecked,
+      vulnerabilityDatabase: "not-configured"
+    }
   };
 }

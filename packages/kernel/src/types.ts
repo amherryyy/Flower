@@ -25,6 +25,17 @@ export interface SecurityBaseline {
     requireLockfile: boolean;
     forbidUnpinnedTags: boolean;
     forbidRemoteSources: boolean;
+    requireIntegrity: boolean;
+    allowedLicenses: string[];
+    unknownLicense: "allow" | "error";
+    auditLevel: "low" | "moderate" | "high" | "critical";
+  };
+  ci: {
+    enabled: boolean;
+    include: string[];
+    requireActionCommitPins: boolean;
+    requireReadOnlyContents: boolean;
+    dependencyAuditCommand: string;
   };
   headers: {
     enabled: boolean;
@@ -54,6 +65,8 @@ export interface SecurityCheckResult {
   summary: {
     filesScanned: number;
     packageManifestsScanned: number;
+    lockfilePackagesChecked: number;
+    workflowFilesChecked: number;
     headersChecked: number;
     uploadPolicyChecked: boolean;
     loggingFilesChecked: number;

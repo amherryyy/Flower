@@ -28,7 +28,22 @@ function project(options: { headers?: boolean } = {}): string {
     $schema: "https://flower.dev/schemas/security/v1.json",
     schemaVersion: 1,
     secretScan: { maxFileBytes: 1048576, exclude: ["node_modules/**"] },
-    dependencies: { requireLockfile: true, forbidUnpinnedTags: true, forbidRemoteSources: true },
+    dependencies: {
+      requireLockfile: true,
+      forbidUnpinnedTags: true,
+      forbidRemoteSources: true,
+      requireIntegrity: true,
+      allowedLicenses: ["MIT"],
+      unknownLicense: "error",
+      auditLevel: "high"
+    },
+    ci: {
+      enabled: false,
+      include: [".github/workflows/*.yml"],
+      requireActionCommitPins: true,
+      requireReadOnlyContents: true,
+      dependencyAuditCommand: "npm audit --audit-level=high"
+    },
     headers: {
       enabled: options.headers ?? false,
       file: "next.config.ts",
@@ -48,7 +63,7 @@ function project(options: { headers?: boolean } = {}): string {
     }
   }, null, 2));
   writeFileSync(path.join(directory, "package.json"), JSON.stringify({ dependencies: { example: "^1.0.0" } }));
-  writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
+  writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({ lockfileVersion: 3, packages: { "": { name: "fixture" } } }));
   writeFileSync(path.join(directory, "index.ts"), "export const safe = true;\n");
   return directory;
 }
@@ -72,6 +87,43 @@ describe("offline security baseline", () => {
       "security.dependency.remoteSource"
     ]));
     expect(JSON.stringify(result)).not.toContain("ghp_A");
+  });
+
+  it("enforces lockfile integrity and the declared license allowlist", async () => {
+    const directory = project();
+    writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        "": { name: "fixture" },
+        "node_modules/no-integrity": { version: "1.0.0", license: "MIT" },
+        "node_modules/no-license": { version: "1.0.0", integrity: "sha512-YWJjZA==" },
+        "node_modules/denied": { version: "1.0.0", integrity: "sha512-YWJjZA==", license: "GPL-3.0-only" }
+      }
+    }));
+    const result = await checkProjectSecurity(directory, await schema());
+    expect(result.summary.lockfilePackagesChecked).toBe(3);
+    expect(result.diagnostics.map((entry) => entry.code)).toEqual(expect.arrayContaining([
+      "security.dependency.integrityMissing",
+      "security.dependency.licenseMissing",
+      "security.dependency.licenseDenied"
+    ]));
+  });
+
+  it("requires immutable CI action references, read-only contents, and the configured audit", async () => {
+    const directory = project();
+    const baselinePath = path.join(directory, ".flower/security.json");
+    const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as { ci: { enabled: boolean } };
+    baseline.ci.enabled = true;
+    writeFileSync(baselinePath, JSON.stringify(baseline));
+    mkdirSync(path.join(directory, ".github/workflows"), { recursive: true });
+    writeFileSync(path.join(directory, ".github/workflows/ci.yml"), "steps:\n  - uses: actions/checkout@v4\n");
+    const result = await checkProjectSecurity(directory, await schema());
+    expect(result.summary.workflowFilesChecked).toBe(1);
+    expect(result.diagnostics.map((entry) => entry.code)).toEqual(expect.arrayContaining([
+      "security.ci.actionNotPinned",
+      "security.ci.auditMissing",
+      "security.ci.permissions"
+    ]));
   });
 
   it("enforces the configured header names, values, and CSP restrictions", async () => {

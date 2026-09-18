@@ -62,7 +62,12 @@
     "serviceRoleAuditMetadata": true,
     "structuredLogging": true,
     "personalDataRedaction": true,
-    "requestBodyLoggingPrevention": true
+    "requestBodyLoggingPrevention": true,
+    "supplyChainPolicy": true,
+    "lockfileIntegrityVerification": true,
+    "licenseAllowlist": true,
+    "immutableCiActions": true,
+    "liveDependencyAuditCi": true
   },
   "quality": {
     "minimumCoverage": 80,

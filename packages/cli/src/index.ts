@@ -387,7 +387,7 @@ function printSecurity(result: SecurityCheckResult, json: boolean): void {
   }
   process.stdout.write(result.secure ? "Flower security check passed.\n" : "Flower security check failed.\n");
   result.diagnostics.forEach((entry) => process.stdout.write(`${formatDiagnostic(entry)}\n`));
-  process.stdout.write(`Scanned ${result.summary.filesScanned} text files and ${result.summary.packageManifestsScanned} package manifests.\n`);
+  process.stdout.write(`Scanned ${result.summary.filesScanned} text files, ${result.summary.packageManifestsScanned} package manifests, ${result.summary.lockfilePackagesChecked} locked packages, and ${result.summary.workflowFilesChecked} CI workflows.\n`);
   process.stdout.write("Live vulnerability database: not configured (offline baseline only).\n");
 }
 

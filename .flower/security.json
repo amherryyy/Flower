@@ -15,7 +15,18 @@
   "dependencies": {
     "requireLockfile": true,
     "forbidUnpinnedTags": true,
-    "forbidRemoteSources": true
+    "forbidRemoteSources": true,
+    "requireIntegrity": true,
+    "allowedLicenses": ["Apache-2.0", "BSD-3-Clause", "ISC", "MIT", "MPL-2.0"],
+    "unknownLicense": "error",
+    "auditLevel": "high"
+  },
+  "ci": {
+    "enabled": true,
+    "include": [".github/workflows/*.yml", ".github/workflows/*.yaml"],
+    "requireActionCommitPins": true,
+    "requireReadOnlyContents": true,
+    "dependencyAuditCommand": "npm audit --audit-level=high"
   },
   "headers": {
     "enabled": false,

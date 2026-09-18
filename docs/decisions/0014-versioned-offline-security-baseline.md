@@ -22,4 +22,4 @@ The bundled Next.js template enables the header policy and supplies CSP, framing
 
 ## Consequences
 
-The gate works without network access and can run in development and CI. It does not identify vulnerabilities, licenses, malware, or compromised package releases from a live advisory database; its machine-readable summary reports that limitation as `vulnerabilityDatabase: "not-configured"`. A later adapter may add online advisory and license providers without changing the offline result contract.
+The gate works without network access and can run in development and CI. At this checkpoint it did not identify vulnerabilities, licenses, malware, or compromised package releases from a live advisory database; its machine-readable summary reports that limitation as `vulnerabilityDatabase: "not-configured"`. Decision 0018 extends the offline gate with lockfile-declared license and integrity policy and adds a separate live advisory threshold in CI without changing that offline result contract.
