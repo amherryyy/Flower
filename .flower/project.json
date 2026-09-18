@@ -28,7 +28,9 @@
     "transactionalInitialization": true,
     "verifiedTemplates": true,
     "moduleManifestValidation": true,
-    "moduleResolution": true
+    "moduleResolution": true,
+    "transactionalModuleAdd": true,
+    "generatedFileTracking": true
   },
   "quality": {
     "minimumCoverage": 80,

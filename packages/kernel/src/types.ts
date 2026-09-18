@@ -217,3 +217,55 @@ export interface ModuleResolutionPlan {
   actions: ModulePlanAction[];
   diagnostics: Diagnostic[];
 }
+
+export interface VerifiedModuleArtifact {
+  path: string;
+  sourcePath: string;
+  sourceDigest: string;
+}
+
+export interface VerifiedModulePackage {
+  root: string;
+  manifestPath: string;
+  manifestDigest: string;
+  configurationPath: string;
+  configurationDigest: string;
+  manifest: ModuleManifest;
+  digest: string;
+  artifacts: VerifiedModuleArtifact[];
+}
+
+export interface ModuleAddPlanFile {
+  moduleId: string;
+  path: string;
+  sourceDigest: string;
+  outputDigest: string;
+}
+
+export interface ModuleAddPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "add";
+  state: "apply" | "unchanged";
+  projectRoot: string;
+  requested: string[];
+  resolved: string[];
+  packages: Array<{ id: string; version: string; digest: string }>;
+  modules: Array<{ id: string; version: string; digest: string }>;
+  files: ModuleAddPlanFile[];
+  preconditions: {
+    projectManifestDigest: string;
+    lockDigest: string;
+    ownershipDigest: string;
+  };
+}
+
+export interface ModuleAddResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  projectRoot: string;
+  installedModules: string[];
+  changedPaths: string[];
+  journalPath?: string;
+}

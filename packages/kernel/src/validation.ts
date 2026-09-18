@@ -1,6 +1,19 @@
 import { Ajv2020, type ErrorObject } from "ajv/dist/2020.js";
 import type { Diagnostic, ValidationResult } from "./types.js";
 
+function createAjv(): Ajv2020 {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strict: true,
+    validateFormats: true
+  });
+  ajv.addFormat("uri-reference", {
+    type: "string",
+    validate: (value: string) => !/\s/.test(value)
+  });
+  return ajv;
+}
+
 function stableDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
   return diagnostics.sort((left, right) => {
     return (
@@ -25,17 +38,7 @@ export function validateDocument(
   document: unknown,
   codePrefix: string
 ): ValidationResult {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strict: true,
-    validateFormats: true
-  });
-  ajv.addFormat("uri-reference", {
-    type: "string",
-    validate: (value: string) => !/\s/.test(value)
-  });
-
-  const validate = ajv.compile(schema);
+  const validate = createAjv().compile(schema);
   const valid = validate(document);
   const diagnostics: Diagnostic[] = (validate.errors ?? []).map((error) => ({
     code: `${codePrefix}.${error.keyword}`,
@@ -48,6 +51,10 @@ export function validateDocument(
     valid: Boolean(valid),
     diagnostics: stableDiagnostics(diagnostics)
   };
+}
+
+export function assertValidJsonSchema(schema: object): void {
+  createAjv().compile(schema);
 }
 
 export function combineValidationResults(

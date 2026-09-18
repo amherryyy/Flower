@@ -7,9 +7,13 @@ import {
   FLOWER_VERSION,
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
+  ModuleAddError,
+  applyModuleAddPlan,
   applyInitPlan,
   combineValidationResults,
   createInitPlan,
+  createModuleAddPlan,
+  loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
   spawnCommand,
@@ -49,7 +53,7 @@ interface DoctorCheck {
 }
 
 function parseArguments(argv: string[]): ParsedArguments {
-  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager"]);
+  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog"]);
   const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--skip-install", "--git"]);
   const values: Record<string, string> = {};
   const positional: string[] = [];
@@ -93,12 +97,21 @@ function templateRoot(templateId: string): string {
   return path.resolve(path.dirname(currentFile), "../../../templates", templateId);
 }
 
+function defaultModuleCatalogRoot(): string {
+  const currentFile = fileURLToPath(import.meta.url);
+  return path.resolve(path.dirname(currentFile), "../../../modules");
+}
+
 function defaultProjectId(target: string): string {
   return path.basename(path.resolve(target)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 function defaultProjectName(projectId: string): string {
   return projectId.split("-").filter(Boolean).map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`).join(" ");
+}
+
+function unsupportedValueOptions(args: ParsedArguments, allowed: string[]): string[] {
+  return Object.keys(args.values).filter((option) => !allowed.includes(option)).sort();
 }
 
 async function loadJson(filePath: string): Promise<unknown> {
@@ -357,6 +370,7 @@ function printHelp(): void {
   process.stdout.write("  flower status [project-path] [--json]\n");
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
   process.stdout.write("              [--package-manager npm] [--dry-run] [--skip-install] [--git] [--json]\n");
+  process.stdout.write("  flower add <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
 }
 
 async function main(): Promise<number> {
@@ -380,6 +394,11 @@ async function main(): Promise<number> {
   if (args.command === "init") {
     if (!args.target) {
       process.stderr.write("flower init requires a target directory\n");
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, ["name", "id", "template", "package-manager"]);
+    if (unsupported.length > 0) {
+      process.stderr.write(`Unsupported option for flower init: --${unsupported.join(", --")}\n`);
       return EXIT.invalidArguments;
     }
     const templateId = args.values.template ?? "next-supabase";
@@ -437,6 +456,52 @@ async function main(): Promise<number> {
         process.stderr.write(`${error instanceof Error ? error.message : "Initialization failed"}\n`);
       }
       return error instanceof InitializationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
+    }
+  }
+
+  if (args.command === "add") {
+    if (!args.target) {
+      process.stderr.write("flower add requires a module id\n");
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, ["project", "catalog"]);
+    if (unsupported.length > 0 || !args.install || args.initializeGit) {
+      const option = unsupported[0] ? `--${unsupported[0]}` : !args.install ? "--skip-install" : "--git";
+      process.stderr.write(`Unsupported option for flower add: ${option}\n`);
+      return EXIT.invalidArguments;
+    }
+    const projectRoot = args.values.project ?? ".";
+    const catalogRoot = args.values.catalog ?? defaultModuleCatalogRoot();
+    try {
+      const moduleSchema = await loadJson(path.join(schemaRoot(), "module", "v1.json"));
+      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object);
+      const plan = await createModuleAddPlan(projectRoot, [args.target], catalog);
+      if (args.dryRun) {
+        if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+        else {
+          process.stdout.write(`Module add plan ${plan.planId}\n`);
+          process.stdout.write(`Project: ${plan.projectRoot}\n`);
+          process.stdout.write(`Modules: ${plan.modules.length ? plan.modules.map((module) => `${module.id}@${module.version}`).join(", ") : "unchanged"}\n`);
+          plan.files.forEach((file) => process.stdout.write(`- generate ${file.path}\n`));
+        }
+        return EXIT.success;
+      }
+      const result = await applyModuleAddPlan(plan, catalog);
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else process.stdout.write(result.status === "unchanged" ? "Requested modules are already installed.\n" : `Installed modules: ${result.installedModules.join(", ")}\n`);
+      return EXIT.success;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          success: false,
+          code: error instanceof ModuleAddError ? error.code : "module.addFailed",
+          message: error instanceof Error ? error.message : "Module installation failed",
+          diagnostics: error instanceof ModuleAddError ? error.diagnostics : []
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : "Module installation failed"}\n`);
+      }
+      return error instanceof ModuleAddError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
     }
   }
 

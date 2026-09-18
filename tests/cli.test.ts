@@ -130,4 +130,44 @@ describe("flower CLI", () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("Unknown option: --adopt");
   });
+
+  it("dry-runs and applies a transitive module installation", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "module-project");
+    expect(run("init", target, "--name", "Module Project", "--skip-install").status).toBe(0);
+
+    const dryRun = run(
+      "add",
+      "organizations",
+      "--project",
+      target,
+      "--catalog",
+      "tests/fixtures/module-catalog",
+      "--dry-run",
+      "--json"
+    );
+    expect(dryRun.status).toBe(0);
+    const plan = JSON.parse(dryRun.stdout) as { modules: Array<{ id: string }>; files: Array<{ path: string }> };
+    expect(plan.modules.map((module) => module.id)).toEqual(["auth", "organizations"]);
+    expect(() => readFileSync(path.join(target, "src/flower/auth.ts"))).toThrow();
+
+    const applied = run(
+      "add",
+      "organizations",
+      "--project",
+      target,
+      "--catalog",
+      "tests/fixtures/module-catalog",
+      "--json"
+    );
+    expect(applied.status).toBe(0);
+    const project = JSON.parse(readFileSync(path.join(target, ".flower/project.json"), "utf8")) as { modules: Record<string, string> };
+    expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0" });
+  });
+
+  it("rejects initialization-only flags for module addition", () => {
+    const result = run("add", "auth", "--skip-install");
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("Unsupported option for flower add: --skip-install");
+  });
 });

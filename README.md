@@ -39,6 +39,7 @@ npm run flower -- validate tests/fixtures/valid-project
 npm run flower -- validate tests/fixtures/invalid-project --json
 npm run flower -- init ../sample-app --name "Sample App" --dry-run
 npm run flower -- init ../sample-app --name "Sample App"
+npm run flower -- add organizations --project ../sample-app --catalog ./modules --dry-run
 ```
 
 All commands support `--json` for deterministic automation output. Flower does not require network access or an external service to inspect, validate, or dry-run a project. Initialization installs dependencies and runs the template's tests, type-check, lint, and build by default. Use `--skip-install` only when materializing an offline project for later installation.
@@ -59,6 +60,8 @@ flower init <target>
 
 The target must be missing or empty. Repeating the same initialization against a successfully initialized target is a verified no-op. Flower never merges initialization output into another existing project; that is the responsibility of the future `flower adopt` workflow. A failed initialization rolls back everything it created. A successful run records the verified template digest in `.flower/lock.json` and writes a local operation journal.
 
+Module packages use a strict manifest, a module-local configuration schema, and generator sources under `generators/<generated-path>`. `flower add` resolves the full dependency graph before writes, verifies package and source digests, enforces generated-path ownership, updates the project manifest and lock together, and rolls back generated files and control metadata on failure. The current repository uses fixture catalogs for contract tests; official capability modules are added in a later F3 slice.
+
 ## Current boundary
 
-Phase F2 initializes a thin application shell. The first Phase F3 slice validates module manifests and plans dependency graphs without writes. Module add/remove/eject transactions, generated-file tracking, official capability modules, database migrations, security baselines, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 now validates module manifests, resolves dependency graphs, and transactionally adds generated module integrations. Remove/eject transactions, official capability modules, database migrations, security baselines, workflow adapters, adoption, and framework updates remain later slices.

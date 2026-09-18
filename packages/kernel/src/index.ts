@@ -8,3 +8,5 @@ export * from "./template.js";
 export * from "./initialization.js";
 export * from "./semver.js";
 export * from "./module.js";
+export * from "./module-package.js";
+export * from "./module-add.js";
