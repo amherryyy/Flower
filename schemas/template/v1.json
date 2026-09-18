@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/template/v1.json",
+  "title": "Flower Template Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "version", "description", "stack", "files", "verificationScripts"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$" },
+    "description": { "type": "string", "minLength": 1 },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "runtime", "web", "database"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 },
+        "web": { "type": "string", "minLength": 1 },
+        "database": { "type": "string", "minLength": 1 }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "target", "digest"],
+        "properties": {
+          "source": { "type": "string", "minLength": 1 },
+          "target": { "type": "string", "minLength": 1 },
+          "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "render": { "type": "boolean" }
+        }
+      }
+    },
+    "verificationScripts": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9:-]*$" },
+      "uniqueItems": true
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "rules": [
+    { "pattern": ".flower/project.json", "owner": "protected", "policy": "migration-engine-only" },
+    { "pattern": ".flower/lock.json", "owner": "generated", "policy": "replace-if-unmodified" },
+    { "pattern": ".flower/ownership.json", "owner": "protected", "policy": "migration-engine-only" },
+    { "pattern": ".flower/generated/**", "owner": "generated", "policy": "replace-if-unmodified" },
+    { "pattern": ".flower/cache/**", "owner": "local", "policy": "never-commit" },
+    { "pattern": ".flower/journal/local/**", "owner": "local", "policy": "never-commit" },
+    { "pattern": "database/migrations/flower/**", "owner": "protected", "policy": "migration-engine-only" },
+    { "pattern": "**", "owner": "project", "policy": "never-overwrite" }
+  ]
+}

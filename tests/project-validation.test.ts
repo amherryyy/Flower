@@ -45,3 +45,17 @@ describe("project manifest validation", () => {
     );
   });
 });
+
+describe("template manifest validation", () => {
+  it("accepts the bundled Next.js and Supabase template manifest", async () => {
+    const [schema, document] = await Promise.all([
+      json("../schemas/template/v1.json"),
+      json("../templates/next-supabase/flower.template.json")
+    ]);
+
+    expect(validateDocument(schema as object, document, "template")).toEqual({
+      valid: true,
+      diagnostics: []
+    });
+  });
+});

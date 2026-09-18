@@ -1,0 +1,30 @@
+{
+  "$schema": "https://flower.dev/schemas/project/v1.json",
+  "schemaVersion": 1,
+  "mode": "project",
+  "project": {
+    "id": "{{projectId}}",
+    "name": {{projectNameJson}}
+  },
+  "flower": {
+    "version": "{{flowerVersion}}",
+    "channel": "development"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "web": "nextjs",
+    "database": "supabase-postgres",
+    "packageManager": "{{packageManager}}"
+  },
+  "modules": {},
+  "capabilities": {
+    "multiTenant": false
+  },
+  "quality": {
+    "minimumCoverage": 80,
+    "requireArchitectureCheck": true,
+    "requireSecurityCheck": true
+  },
+  "adapters": {}
+}

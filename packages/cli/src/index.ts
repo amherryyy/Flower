@@ -5,9 +5,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FLOWER_VERSION,
+  InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
+  applyInitPlan,
   combineValidationResults,
+  createInitPlan,
+  loadAndVerifyTemplate,
   projectSchemaVersion,
+  spawnCommand,
   validateDocument,
   validateOwnershipManifest,
   type Diagnostic,
@@ -19,7 +24,8 @@ import {
 const EXIT = {
   success: 0,
   failure: 1,
-  invalidArguments: 2
+  invalidArguments: 2,
+  partial: 8
 } as const;
 
 interface ParsedArguments {
@@ -28,6 +34,11 @@ interface ParsedArguments {
   json: boolean;
   version: boolean;
   help: boolean;
+  dryRun: boolean;
+  install: boolean;
+  initializeGit: boolean;
+  values: Record<string, string>;
+  unknownOptions: string[];
 }
 
 interface DoctorCheck {
@@ -37,7 +48,24 @@ interface DoctorCheck {
 }
 
 function parseArguments(argv: string[]): ParsedArguments {
-  const positional = argv.filter((argument) => !argument.startsWith("-"));
+  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager"]);
+  const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--skip-install", "--git"]);
+  const values: Record<string, string> = {};
+  const positional: string[] = [];
+  const unknownOptions: string[] = [];
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index]!;
+    if (valueOptions.has(argument)) {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("-")) throw new Error(`${argument} requires a value`);
+      values[argument.slice(2)] = value;
+      index += 1;
+    } else if (!argument.startsWith("-")) {
+      positional.push(argument);
+    } else if (!flagOptions.has(argument)) {
+      unknownOptions.push(argument);
+    }
+  }
   const command = positional[0];
   const target = positional[1];
   return {
@@ -45,13 +73,31 @@ function parseArguments(argv: string[]): ParsedArguments {
     ...(target ? { target } : {}),
     json: argv.includes("--json"),
     version: argv.includes("--version") || argv.includes("-v"),
-    help: argv.includes("--help") || argv.includes("-h")
+    help: argv.includes("--help") || argv.includes("-h"),
+    dryRun: argv.includes("--dry-run"),
+    install: !argv.includes("--skip-install"),
+    initializeGit: argv.includes("--git"),
+    values,
+    unknownOptions
   };
 }
 
 function schemaRoot(): string {
   const currentFile = fileURLToPath(import.meta.url);
   return path.resolve(path.dirname(currentFile), "../../../schemas");
+}
+
+function templateRoot(templateId: string): string {
+  const currentFile = fileURLToPath(import.meta.url);
+  return path.resolve(path.dirname(currentFile), "../../../templates", templateId);
+}
+
+function defaultProjectId(target: string): string {
+  return path.basename(path.resolve(target)).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function defaultProjectName(projectId: string): string {
+  return projectId.split("-").filter(Boolean).map((word) => `${word[0]?.toUpperCase() ?? ""}${word.slice(1)}`).join(" ");
 }
 
 async function loadJson(filePath: string): Promise<unknown> {
@@ -76,7 +122,7 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership"
+  kind: "project" | "ownership" | "template"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
@@ -93,11 +139,12 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
   const extension = path.extname(target).toLowerCase();
 
   if (extension === ".json") {
-    const ownership = path.basename(target) === "ownership.json";
+    const basename = path.basename(target);
+    const kind = basename === "ownership.json" ? "ownership" : basename === "flower.template.json" ? "template" : "project";
     return validateFile(
       target,
-      path.join(schemaRoot(), ownership ? "ownership" : "project", "v1.json"),
-      ownership ? "ownership" : "project"
+      path.join(schemaRoot(), kind, "v1.json"),
+      kind
     );
   }
 
@@ -301,10 +348,17 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
+  process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
+  process.stdout.write("              [--package-manager npm] [--dry-run] [--skip-install] [--git] [--json]\n");
 }
 
 async function main(): Promise<number> {
   const args = parseArguments(process.argv.slice(2));
+
+  if (args.unknownOptions.length > 0) {
+    process.stderr.write(`Unknown option${args.unknownOptions.length === 1 ? "" : "s"}: ${args.unknownOptions.join(", ")}\n`);
+    return EXIT.invalidArguments;
+  }
 
   if (args.version) {
     process.stdout.write(`${FLOWER_VERSION}\n`);
@@ -314,6 +368,69 @@ async function main(): Promise<number> {
   if (args.help || !args.command) {
     printHelp();
     return EXIT.success;
+  }
+
+  if (args.command === "init") {
+    if (!args.target) {
+      process.stderr.write("flower init requires a target directory\n");
+      return EXIT.invalidArguments;
+    }
+    const templateId = args.values.template ?? "next-supabase";
+    const projectId = args.values.id ?? defaultProjectId(args.target);
+    const projectName = args.values.name ?? defaultProjectName(projectId);
+    const packageManagerId = args.values["package-manager"] ?? "npm";
+    if (!/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(templateId)) {
+      process.stderr.write("Template id must be a lowercase kebab-case identifier\n");
+      return EXIT.invalidArguments;
+    }
+    if (packageManagerId !== "npm") {
+      process.stderr.write(`Unsupported package manager '${packageManagerId}'. Supported package managers: npm\n`);
+      return EXIT.invalidArguments;
+    }
+
+    try {
+      const templateSchema = await loadJson(path.join(schemaRoot(), "template", "v1.json"));
+      const template = await loadAndVerifyTemplate(templateRoot(templateId), templateSchema as object);
+      const plan = await createInitPlan({
+        target: args.target,
+        projectId,
+        projectName,
+        templateId,
+        packageManager: packageManagerId,
+        install: args.install,
+        initializeGit: args.initializeGit
+      }, template);
+
+      if (args.dryRun) {
+        if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+        else {
+          process.stdout.write(`Initialization plan ${plan.planId}\n`);
+          process.stdout.write(`Target: ${plan.target}\n`);
+          process.stdout.write(`Template: ${plan.template.id}@${plan.template.version} (${plan.template.digest})\n`);
+          plan.actions.forEach((action) => process.stdout.write(`- ${action.kind}${action.path ? ` ${action.path}` : ""}${action.command ? `: ${action.command}` : ""}\n`));
+        }
+        return EXIT.success;
+      }
+
+      const result = await applyInitPlan(plan, template, spawnCommand);
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else {
+        process.stdout.write(`Initialized ${projectName} at ${result.target}.\n`);
+        process.stdout.write(`Plan: ${result.planId}\n`);
+      }
+      return EXIT.success;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          success: false,
+          code: error instanceof InitializationError ? error.code : "init.failed",
+          message: error instanceof Error ? error.message : "Initialization failed"
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : "Initialization failed"}\n`);
+      }
+      return error instanceof InitializationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
+    }
   }
 
   if (args.command === "validate") {

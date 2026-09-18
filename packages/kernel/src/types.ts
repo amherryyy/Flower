@@ -104,3 +104,87 @@ export interface JournalEntry {
   result?: Record<string, unknown>;
   errorCode?: string;
 }
+
+export type PackageManagerId = "npm";
+
+export interface TemplateFile {
+  source: string;
+  target: string;
+  digest: string;
+  render?: boolean;
+}
+
+export interface TemplateManifest {
+  $schema?: string;
+  schemaVersion: 1;
+  id: string;
+  version: string;
+  description: string;
+  stack: {
+    language: string;
+    runtime: string;
+    web: string;
+    database: string;
+  };
+  files: TemplateFile[];
+  verificationScripts: string[];
+}
+
+export interface VerifiedTemplate {
+  root: string;
+  manifest: TemplateManifest;
+  digest: string;
+}
+
+export interface InitOptions {
+  target: string;
+  projectId: string;
+  projectName: string;
+  templateId: string;
+  packageManager: PackageManagerId;
+  install: boolean;
+  initializeGit: boolean;
+}
+
+export interface InitPlanAction {
+  kind: "reserve-directory" | "write-file" | "install-dependencies" | "initialize-git" | "run-script" | "write-journal";
+  path?: string;
+  command?: string;
+}
+
+export interface InitPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "init";
+  state: "create" | "unchanged";
+  target: string;
+  project: { id: string; name: string };
+  template: { id: string; version: string; digest: string };
+  packageManager: PackageManagerId;
+  install: boolean;
+  initializeGit: boolean;
+  actions: InitPlanAction[];
+}
+
+export interface CommandInvocation {
+  executable: string;
+  args: string[];
+  cwd: string;
+}
+
+export interface CommandResult {
+  exitCode: number;
+  stdout: string;
+  stderr: string;
+}
+
+export type CommandRunner = (invocation: CommandInvocation) => Promise<CommandResult>;
+
+export interface InitResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  target: string;
+  changedPaths: string[];
+  journalPath?: string;
+}

@@ -32,6 +32,11 @@
       "policy": "package-managed"
     },
     {
+      "pattern": "templates/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
       "pattern": "docs/**",
       "owner": "project",
       "policy": "never-overwrite"

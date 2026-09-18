@@ -24,7 +24,9 @@
   "capabilities": {
     "manifestMigration": true,
     "ownershipClassification": true,
-    "localJournal": true
+    "localJournal": true,
+    "transactionalInitialization": true,
+    "verifiedTemplates": true
   },
   "quality": {
     "minimumCoverage": 80,

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://flower.dev/schemas/template/v1.json",
+  "schemaVersion": 1,
+  "id": "next-supabase",
+  "version": "0.1.0",
+  "description": "Thin Next.js App Router project with a Supabase client boundary",
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "web": "nextjs",
+    "database": "supabase-postgres"
+  },
+  "files": [
+    { "source": "_gitignore", "target": ".gitignore", "digest": "sha256:4d4001fef666662d62eaa74f7f0542d93d17ac56631137b4095c07d456a562a4" },
+    { "source": ".env.example", "target": ".env.example", "digest": "sha256:cb242010afc4b46d61b48b04c557f8b0fdd3fbc691f9ea5ca5476d6b9b13c277" },
+    { "source": ".flower/lock.json", "target": ".flower/lock.json", "digest": "sha256:f120e19563892b9898339f80337b86e58b60a623a63a4ba1f9af59c245b492ff", "render": true },
+    { "source": ".flower/ownership.json", "target": ".flower/ownership.json", "digest": "sha256:8ae1fc2456b4625ec65ff2049ebd81549cb77d673819ac7b816ca4fb4e8c6d69" },
+    { "source": ".flower/project.json", "target": ".flower/project.json", "digest": "sha256:d929a5047ea864b4753c3c521ad6fc15f58cd3fe38e9ab7cd42f01ae2e4dd9a0", "render": true },
+    { "source": "app/layout.tsx", "target": "app/layout.tsx", "digest": "sha256:a593135fdc0364056d5952508543f95b158929f7ec5720b0e41d5877b2c4ff34", "render": true },
+    { "source": "app/page.tsx", "target": "app/page.tsx", "digest": "sha256:ecb87c0197f19c76f62c22d064584574dfe7165302e712e54067e1a7b2f48b90", "render": true },
+    { "source": "app/styles.css", "target": "app/styles.css", "digest": "sha256:cdb628f3e2ffb6ceed664c017738e564805c64efa0312d777c75005e4e747535" },
+    { "source": "next-env.d.ts", "target": "next-env.d.ts", "digest": "sha256:39bba17f2ce9ee6e85c588995720b02494f1c62f6fb53a0bdd2420ab8157db85" },
+    { "source": "next.config.ts", "target": "next.config.ts", "digest": "sha256:11d93123eb11ba83af55f8c3ad83c0cd8acb87ddd5d6afc2b09c7d400c91d0c3" },
+    { "source": "package.json", "target": "package.json", "digest": "sha256:39318c9d193644d503d8121a3eb88078f7851cb1bbbf7767eb28f79cb6018b26", "render": true },
+    { "source": "src/lib/supabase/client.ts", "target": "src/lib/supabase/client.ts", "digest": "sha256:7f3433c93267def54badec81fad42c198857039799c001a5d5d4a85d5aa24a1c" },
+    { "source": "tests/template.test.mjs", "target": "tests/template.test.mjs", "digest": "sha256:0ead44ff199c98826c23f9c7c5a4650f75fa28cbd6de6bc0345e0ee92b7a5109", "render": true },
+    { "source": "tsconfig.json", "target": "tsconfig.json", "digest": "sha256:96aaf92fdf7ccae554a477cff17ad5bd6db0efd3a20437c773015ab3dd0faebf" }
+  ],
+  "verificationScripts": ["test", "typecheck", "lint", "build"]
+}

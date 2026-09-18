@@ -1,9 +1,22 @@
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "packages", "cli", "dist", "index.js");
+const temporaryDirectories: string[] = [];
+
+afterEach(() => {
+  temporaryDirectories.splice(0).forEach((directory) => rmSync(directory, { recursive: true, force: true }));
+});
+
+function temporaryDirectory(): string {
+  const directory = mkdtempSync(path.join(tmpdir(), "flower-cli-"));
+  temporaryDirectories.push(directory);
+  return directory;
+}
 
 function run(...args: string[]) {
   return spawnSync(process.execPath, [cli, ...args], {
@@ -65,5 +78,50 @@ describe("flower CLI", () => {
     expect(output.project).toEqual(expect.objectContaining({ id: "flower-framework", mode: "framework" }));
     expect(output.modules).toEqual(["cli", "kernel"]);
     expect(output.ownershipRules).toBeGreaterThan(0);
+  });
+
+  it("validates the bundled template manifest with the template schema", () => {
+    const result = run("validate", "templates/next-supabase/flower.template.json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Flower validation passed.");
+  });
+
+  it("prints a JSON initialization plan without writing the target", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "planned-app");
+    const result = run("init", target, "--name", "Planned App", "--dry-run", "--json");
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout) as { command: string; project: { id: string }; actions: unknown[] };
+    expect(output.command).toBe("init");
+    expect(output.project.id).toBe("planned-app");
+    expect(output.actions.length).toBeGreaterThan(10);
+    expect(() => readFileSync(path.join(target, "package.json"))).toThrow();
+  });
+
+  it("initializes a project transactionally when dependency installation is skipped", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "created-app");
+    const result = run("init", target, "--name", "Created App", "--skip-install", "--json");
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout) as { result: { status: string } };
+    const project = JSON.parse(readFileSync(path.join(target, ".flower/project.json"), "utf8")) as { project: { name: string } };
+    expect(output.result.status).toBe("completed");
+    expect(project.project.name).toBe("Created App");
+  });
+
+  it("refuses a non-empty initialization target without changing it", () => {
+    const target = temporaryDirectory();
+    const sentinel = path.join(target, "keep.txt");
+    writeFileSync(sentinel, "keep\n");
+    const result = run("init", target, "--skip-install", "--json");
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)).toEqual(expect.objectContaining({ code: "init.targetNotEmpty" }));
+    expect(readFileSync(sentinel, "utf8")).toBe("keep\n");
+  });
+
+  it("rejects unknown initialization options", () => {
+    const result = run("init", path.join(temporaryDirectory(), "unknown-option"), "--adopt");
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("Unknown option: --adopt");
   });
 });

@@ -1,0 +1,11 @@
+{
+  "lockVersion": 1,
+  "flowerVersion": "{{flowerVersion}}",
+  "template": {
+    "id": "{{templateId}}",
+    "version": "{{templateVersion}}",
+    "digest": "{{templateDigest}}"
+  },
+  "modules": {},
+  "generatedFiles": {}
+}
