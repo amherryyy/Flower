@@ -14,6 +14,7 @@ import {
   projectSchemaVersion,
   spawnCommand,
   validateDocument,
+  validateModuleManifest,
   validateOwnershipManifest,
   type Diagnostic,
   type OwnershipManifest,
@@ -122,13 +123,13 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership" | "template"
+  kind: "project" | "ownership" | "template" | "module"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
-    return kind === "ownership"
-      ? validateOwnershipManifest(schema as object, document)
-      : validateDocument(schema as object, document, "project");
+    if (kind === "ownership") return validateOwnershipManifest(schema as object, document);
+    if (kind === "module") return validateModuleManifest(schema as object, document);
+    return validateDocument(schema as object, document, kind);
   } catch (error) {
     return sourceDiagnostic(`${kind}.read`, filePath, error);
   }
@@ -140,7 +141,13 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
 
   if (extension === ".json") {
     const basename = path.basename(target);
-    const kind = basename === "ownership.json" ? "ownership" : basename === "flower.template.json" ? "template" : "project";
+    const kind = basename === "ownership.json"
+      ? "ownership"
+      : basename === "flower.template.json"
+        ? "template"
+        : basename === "flower.module.json"
+          ? "module"
+          : "project";
     return validateFile(
       target,
       path.join(schemaRoot(), kind, "v1.json"),

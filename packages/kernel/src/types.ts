@@ -188,3 +188,32 @@ export interface InitResult {
   changedPaths: string[];
   journalPath?: string;
 }
+
+export interface ModuleManifest {
+  $schema?: string;
+  schemaVersion: 1;
+  id: string;
+  version: string;
+  compatibleFlower: string;
+  dependsOn: Record<string, string>;
+  conflictsWith: string[];
+  provides: string[];
+  configurationSchema: string;
+  migrations: string[];
+  generatedPaths: string[];
+  requiredChecks: string[];
+}
+
+export interface ModulePlanAction {
+  kind: "install" | "retain";
+  moduleId: string;
+  version: string;
+}
+
+export interface ModuleResolutionPlan {
+  valid: boolean;
+  requested: string[];
+  resolved: string[];
+  actions: ModulePlanAction[];
+  diagnostics: Diagnostic[];
+}

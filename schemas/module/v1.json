@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/module/v1.json",
+  "title": "Flower Module Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "version",
+    "compatibleFlower",
+    "dependsOn",
+    "conflictsWith",
+    "provides",
+    "configurationSchema",
+    "migrations",
+    "generatedPaths",
+    "requiredChecks"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+      "minLength": 2,
+      "maxLength": 64
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+    },
+    "compatibleFlower": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "dependsOn": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "additionalProperties": { "type": "string", "minLength": 1, "maxLength": 200 }
+    },
+    "conflictsWith": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "provides": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "configurationSchema": { "type": "string", "format": "uri-reference" },
+    "migrations": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "generatedPaths": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+      },
+      "uniqueItems": true
+    },
+    "requiredChecks": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    }
+  }
+}

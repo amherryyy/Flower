@@ -6,3 +6,5 @@ export * from "./journal.js";
 export * from "./package-manager.js";
 export * from "./template.js";
 export * from "./initialization.js";
+export * from "./semver.js";
+export * from "./module.js";

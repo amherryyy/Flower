@@ -12,6 +12,7 @@ This repository currently contains the Phase F0 foundation, Phase F1 diagnostic 
 - transactional template materialization and rollback;
 - an npm package-manager adapter;
 - a checksum-verified thin Next.js/Supabase template;
+- versioned module-manifest validation and deterministic read-only dependency resolution;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -60,4 +61,4 @@ The target must be missing or empty. Repeating the same initialization against a
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell only. Capability-module composition, database migrations, security baselines, workflow adapters, adoption, and framework updates remain later phases.
+Phase F2 initializes a thin application shell. The first Phase F3 slice validates module manifests and plans dependency graphs without writes. Module add/remove/eject transactions, generated-file tracking, official capability modules, database migrations, security baselines, workflow adapters, adoption, and framework updates remain later slices.
