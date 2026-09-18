@@ -40,7 +40,9 @@
     "officialModuleCatalog": true,
     "migrationRegistry": true,
     "migrationPlanning": true,
-    "postgresMigrationExecution": true
+    "postgresMigrationExecution": true,
+    "nodePostgresAdapter": true,
+    "officialDatabaseSchema": true
   },
   "quality": {
     "minimumCoverage": 80,

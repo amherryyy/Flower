@@ -7,6 +7,7 @@ import {
   applyModuleAddPlan,
   applyModuleDispositionPlan,
   createInitPlan,
+  createMigrationPlan,
   createModuleAddPlan,
   createModuleDispositionPlan,
   loadAndVerifyTemplate,
@@ -53,10 +54,17 @@ describe("official module catalog", () => {
   it("loads four valid, digest-protected packages", async () => {
     const catalog = await officialCatalog();
     expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "organizations", "rbac"]);
+    const expectedMigrations: Record<string, string[]> = {
+      audit: ["audit-001"],
+      auth: [],
+      organizations: ["organizations-001"],
+      rbac: ["rbac-001"]
+    };
     for (const modulePackage of catalog) {
       expect(modulePackage.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
       expect(modulePackage.configurationDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
-      expect(modulePackage.manifest.migrations).toEqual([]);
+      expect(modulePackage.manifest.migrations).toEqual(expectedMigrations[modulePackage.manifest.id]);
+      expect(modulePackage.migrations.map(({ id }) => id)).toEqual(expectedMigrations[modulePackage.manifest.id]);
       expect(modulePackage.artifacts).toHaveLength(1);
     }
   });
@@ -68,6 +76,24 @@ describe("official module catalog", () => {
     expect(resolution.diagnostics).toEqual([]);
     expect(resolution.requested).toEqual(["audit", "rbac"]);
     expect(resolution.resolved).toEqual(["auth", "organizations", "audit", "rbac"]);
+    const migrationPlan = createMigrationPlan(catalog, ["rbac", "audit"]);
+    expect(migrationPlan.actions.map(({ id }) => id)).toEqual(["organizations-001", "audit-001", "rbac-001"]);
+  });
+
+  it("ships a fail-closed tenant schema baseline", async () => {
+    const catalog = await officialCatalog();
+    const sql = (await Promise.all(catalog.flatMap(({ migrations }) =>
+      migrations.map(({ sourcePath }) => readFile(sourcePath, "utf8"))
+    ))).join("\n").toLowerCase();
+
+    expect(sql).toContain("create table public.organizations");
+    expect(sql).toContain("create table public.organization_memberships");
+    expect(sql).toContain("create table public.roles");
+    expect(sql).toContain("create table public.role_permissions");
+    expect(sql).toContain("create table public.audit_events");
+    expect(sql.match(/enable row level security/g)).toHaveLength(5);
+    expect(sql).toContain("foreign key (organization_id, role_id)");
+    expect(sql).not.toContain("create policy");
   });
 
   it("composes, guards dependencies, removes, and ejects a golden project", async () => {

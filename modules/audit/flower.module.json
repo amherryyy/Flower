@@ -8,7 +8,7 @@
   "conflictsWith": [],
   "provides": ["audit-event", "audit-trail"],
   "configurationSchema": "./schemas/config.json",
-  "migrations": [],
+  "migrations": ["audit-001"],
   "generatedPaths": ["src/flower/audit.ts"],
   "requiredChecks": ["audit-contract"]
 }

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  applyNodePostgresMigrationPlan,
   applyPostgresMigrationPlan,
   createMigrationPlan,
   loadModuleCatalog,
@@ -97,6 +98,24 @@ class FakePostgres implements PostgresMigrationClient {
   }
 }
 
+class FakePoolClient extends FakePostgres {
+  releasedWith?: Error;
+
+  release(error?: Error): void {
+    this.releasedWith = error;
+  }
+}
+
+class FakePool {
+  readonly client = new FakePoolClient();
+  connections = 0;
+
+  async connect(): Promise<FakePoolClient> {
+    this.connections += 1;
+    return this.client;
+  }
+}
+
 describe("PostgreSQL migration history", () => {
   it("discovers an absent history table without writing", async () => {
     const client = new FakePostgres();
@@ -122,6 +141,32 @@ describe("PostgreSQL migration history", () => {
 });
 
 describe("transactional PostgreSQL migration execution", () => {
+  it("keeps the whole transaction on one checked-out node-postgres client", async () => {
+    const catalog = await migrationCatalog();
+    const plan = createMigrationPlan(catalog, ["organizations"]);
+    const pool = new FakePool();
+
+    await expect(applyNodePostgresMigrationPlan(pool, plan, catalog)).resolves.toEqual(expect.objectContaining({
+      status: "completed"
+    }));
+    expect(pool.connections).toBe(1);
+    expect(pool.client.releasedWith).toBeUndefined();
+    expect(pool.client.queries[0]?.text).toBe("begin;");
+    expect(pool.client.queries.at(-1)?.text).toBe("commit;");
+  });
+
+  it("discards a pooled connection after execution failure", async () => {
+    const catalog = await migrationCatalog();
+    const plan = createMigrationPlan(catalog, ["organizations"]);
+    const pool = new FakePool();
+    pool.client.failWhenSqlIncludes = "-- organizations-002";
+
+    await expect(applyNodePostgresMigrationPlan(pool, plan, catalog)).rejects.toMatchObject({
+      code: "migration.executionFailed"
+    });
+    expect(pool.client.releasedWith).toBeInstanceOf(Error);
+  });
+
   it("locks, applies SQL in order, and records history atomically", async () => {
     const catalog = await migrationCatalog();
     const plan = createMigrationPlan(catalog, ["organizations"]);
