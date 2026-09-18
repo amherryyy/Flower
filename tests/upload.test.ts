@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { validateUpload, type UploadCandidate, type UploadPolicy } from "../packages/kernel/src/index.js";
+import {
+  inspectUpload,
+  validateUpload,
+  type UploadCandidate,
+  type UploadContent,
+  type UploadMalwareScanner,
+  type UploadPolicy,
+  type UploadSanitizer
+} from "../packages/kernel/src/index.js";
 
 const userId = "123e4567-e89b-42d3-a456-426614174000";
 const organizationId = "123e4567-e89b-42d3-a456-426614174001";
@@ -56,4 +64,56 @@ describe("upload validation", () => {
     }, { userId, organizationIds: [organizationId] });
     expect(result.valid).toBe(true);
   });
+
+  it("scans before and after sanitization and returns only the transformed content", async () => {
+    const original = content(candidate, "original");
+    const sanitized = content({ ...candidate, size: 500 }, "sanitized");
+    const scans: UploadContent[] = [];
+    const scanner: UploadMalwareScanner = {
+      async scan(value) {
+        scans.push(value);
+        return { verdict: "clean", engine: "fixture-scanner" };
+      }
+    };
+    const sanitizer: UploadSanitizer = { async sanitize() { return sanitized; } };
+    const result = await inspectUpload(policy, original, { userId, organizationIds: [] }, scanner, sanitizer);
+    expect(scans).toEqual([original, result.content]);
+    expect(result.content.candidate.size).toBe(500);
+    expect(result.scannerEngines).toEqual(["fixture-scanner", "fixture-scanner"]);
+  });
+
+  it("fails closed for malware, inconclusive scans, sanitizer errors, and invalid transformed output", async () => {
+    const original = content(candidate, "original");
+    const clean: UploadMalwareScanner = { async scan() { return { verdict: "clean", engine: "fixture" }; } };
+    const infected: UploadMalwareScanner = { async scan() { return { verdict: "infected", engine: "fixture" }; } };
+    const unknown: UploadMalwareScanner = { async scan() { return { verdict: "unknown", engine: "fixture" }; } };
+    const passthrough: UploadSanitizer = { async sanitize(value) { return value; } };
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, infected, passthrough)).rejects.toEqual(
+      expect.objectContaining({ code: "upload.malwareDetected" })
+    );
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, unknown, passthrough)).rejects.toEqual(
+      expect.objectContaining({ code: "upload.scanInconclusive" })
+    );
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, {
+      async scan() { throw new Error("scanner offline"); }
+    }, passthrough)).rejects.toEqual(expect.objectContaining({ code: "upload.scannerUnavailable" }));
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, clean, {
+      async sanitize() { throw new Error("offline"); }
+    })).rejects.toEqual(expect.objectContaining({ code: "upload.sanitizerUnavailable" }));
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, clean, {
+      async sanitize() { return content({ ...candidate, headerBytes: new Uint8Array() }, "unsafe"); }
+    })).rejects.toEqual(expect.objectContaining({ code: "upload.sanitizationRejected" }));
+
+    let scan = 0;
+    await expect(inspectUpload(policy, original, { userId, organizationIds: [] }, {
+      async scan() { return { verdict: ++scan === 1 ? "clean" : "infected", engine: "fixture" }; }
+    }, passthrough)).rejects.toEqual(expect.objectContaining({ code: "upload.malwareDetected" }));
+  });
 });
+
+function content(upload: UploadCandidate, value: string): UploadContent {
+  return {
+    candidate: upload,
+    async *open() { yield Buffer.from(value); }
+  };
+}

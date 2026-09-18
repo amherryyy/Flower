@@ -26,6 +26,44 @@ export interface UploadActor {
   organizationIds: readonly string[];
 }
 
+export interface UploadContent {
+  candidate: UploadCandidate;
+  open(): AsyncIterable<Uint8Array>;
+}
+
+export interface UploadMalwareScanner {
+  scan(content: UploadContent): Promise<{ verdict: "clean" | "infected" | "unknown"; engine: string }>;
+}
+
+export interface UploadSanitizer {
+  sanitize(content: UploadContent): Promise<UploadContent>;
+}
+
+export interface InspectedUpload {
+  content: UploadContent;
+  scannerEngines: readonly [string, string];
+}
+
+export class UploadInspectionError extends Error {
+  readonly code:
+    | "upload.validationRejected"
+    | "upload.malwareDetected"
+    | "upload.scanInconclusive"
+    | "upload.scannerUnavailable"
+    | "upload.sanitizerUnavailable"
+    | "upload.sanitizationRejected";
+  readonly diagnostics?: Diagnostic[];
+  readonly cause?: unknown;
+
+  constructor(message: string, code: UploadInspectionError["code"], options: { diagnostics?: Diagnostic[]; cause?: unknown } = {}) {
+    super(message);
+    this.name = "UploadInspectionError";
+    this.code = code;
+    if (options.diagnostics) this.diagnostics = options.diagnostics;
+    if (options.cause !== undefined) this.cause = options.cause;
+  }
+}
+
 function issue(code: string, path: string, message: string): Diagnostic {
   return { code, path, message, severity: "error" };
 }
@@ -84,4 +122,58 @@ export function validateUpload(
   }
   diagnostics.sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code));
   return { valid: diagnostics.length === 0, diagnostics };
+}
+
+async function requireClean(scanner: UploadMalwareScanner, content: UploadContent): Promise<string> {
+  let result: Awaited<ReturnType<UploadMalwareScanner["scan"]>>;
+  try {
+    result = await scanner.scan(content);
+  } catch (error) {
+    throw new UploadInspectionError("Upload malware scanner is unavailable", "upload.scannerUnavailable", { cause: error });
+  }
+  if (result.verdict === "infected") {
+    throw new UploadInspectionError("Upload was rejected by malware scanning", "upload.malwareDetected");
+  }
+  if (result.verdict !== "clean" || typeof result.engine !== "string" || result.engine.trim().length === 0) {
+    throw new UploadInspectionError("Upload malware scan was inconclusive", "upload.scanInconclusive");
+  }
+  return result.engine.trim();
+}
+
+export async function inspectUpload(
+  policy: UploadPolicy,
+  content: UploadContent,
+  actor: UploadActor,
+  scanner: UploadMalwareScanner,
+  sanitizer: UploadSanitizer
+): Promise<InspectedUpload> {
+  if (!content || typeof content.open !== "function" || !content.candidate) {
+    throw new UploadInspectionError("Upload content source is invalid", "upload.validationRejected");
+  }
+  const initial = validateUpload(policy, content.candidate, actor);
+  if (!initial.valid) {
+    throw new UploadInspectionError("Upload failed policy validation", "upload.validationRejected", { diagnostics: initial.diagnostics });
+  }
+  const originalEngine = await requireClean(scanner, content);
+  let sanitized: UploadContent;
+  try {
+    sanitized = await sanitizer.sanitize(content);
+  } catch (error) {
+    throw new UploadInspectionError("Upload sanitizer is unavailable", "upload.sanitizerUnavailable", { cause: error });
+  }
+  if (!sanitized || typeof sanitized.open !== "function" || !sanitized.candidate) {
+    throw new UploadInspectionError("Sanitizer returned an invalid content source", "upload.sanitizationRejected");
+  }
+  const sanitizedCandidate: UploadCandidate = {
+    ...sanitized.candidate,
+    fileName: content.candidate.fileName,
+    owner: content.candidate.owner
+  };
+  sanitized = { ...sanitized, candidate: sanitizedCandidate };
+  const transformed = validateUpload(policy, sanitized.candidate, actor);
+  if (!transformed.valid) {
+    throw new UploadInspectionError("Sanitized upload failed policy validation", "upload.sanitizationRejected", { diagnostics: transformed.diagnostics });
+  }
+  const sanitizedEngine = await requireClean(scanner, sanitized);
+  return Object.freeze({ content: sanitized, scannerEngines: Object.freeze([originalEngine, sanitizedEngine]) }) as InspectedUpload;
 }

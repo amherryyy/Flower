@@ -70,7 +70,9 @@
     "liveDependencyAuditCi": true,
     "boundedCounterRetention": true,
     "appendOnlyAuditEvents": true,
-    "auditSensitivePayloadRejection": true
+    "auditSensitivePayloadRejection": true,
+    "failClosedUploadInspection": true,
+    "postSanitizationValidation": true
   },
   "quality": {
     "minimumCoverage": 80,

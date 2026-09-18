@@ -26,6 +26,6 @@ The application adapter containing the actual service-role credential must be ma
 
 ## Consequences
 
-File validation and privileged data access now have fail-closed, testable contracts. Signature prefixes identify expected formats but do not provide malware scanning, image decoding, PDF sanitization, archive inspection, or content moderation. Those controls and storage-provider adapters remain application or later framework work.
+File validation and privileged data access now have fail-closed, testable contracts. Signature prefixes identify expected formats but do not themselves provide malware scanning, image decoding, PDF sanitization, archive inspection, or content moderation. Decision 0021 adds a mandatory provider-neutral scan/sanitize pipeline; concrete engines and storage-provider adapters remain application integrations.
 
 Audit failure prevents the privileged operation from starting. The attempt record intentionally excludes filters, values, file names, and content. Applications may add outcome auditing inside the same durable transaction as their data port when atomic outcome evidence is required.
