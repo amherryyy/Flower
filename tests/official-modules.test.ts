@@ -58,10 +58,10 @@ describe("official module catalog", () => {
     const catalog = await officialCatalog();
     expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "organizations", "rbac"]);
     const expectedMigrations: Record<string, string[]> = {
-      audit: ["audit-001"],
+      audit: ["audit-001", "audit-002"],
       auth: [],
-      organizations: ["organizations-001"],
-      rbac: ["rbac-001"]
+      organizations: ["organizations-001", "organizations-002"],
+      rbac: ["rbac-001", "rbac-002"]
     };
     for (const modulePackage of catalog) {
       expect(modulePackage.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -78,12 +78,19 @@ describe("official module catalog", () => {
     expect(resolution.valid).toBe(true);
     expect(resolution.diagnostics).toEqual([]);
     expect(resolution.requested).toEqual(["audit", "rbac"]);
-    expect(resolution.resolved).toEqual(["auth", "organizations", "audit", "rbac"]);
+    expect(resolution.resolved).toEqual(["auth", "organizations", "rbac", "audit"]);
     const migrationPlan = createMigrationPlan(catalog, ["rbac", "audit"]);
-    expect(migrationPlan.actions.map(({ id }) => id)).toEqual(["organizations-001", "audit-001", "rbac-001"]);
+    expect(migrationPlan.actions.map(({ id }) => id)).toEqual([
+      "organizations-001",
+      "organizations-002",
+      "rbac-001",
+      "rbac-002",
+      "audit-001",
+      "audit-002"
+    ]);
   });
 
-  it("ships a fail-closed tenant schema baseline", async () => {
+  it("ships RLS-enabled tenant tables with explicit read policies", async () => {
     const catalog = await officialCatalog();
     const sql = (await Promise.all(catalog.flatMap(({ migrations }) =>
       migrations.map(({ sourcePath }) => readFile(sourcePath, "utf8"))
@@ -96,14 +103,15 @@ describe("official module catalog", () => {
     expect(sql).toContain("create table public.audit_events");
     expect(sql.match(/enable row level security/g)).toHaveLength(5);
     expect(sql).toContain("foreign key (organization_id, role_id)");
-    expect(sql).not.toContain("create policy");
+    expect(sql.match(/create policy/g)).toHaveLength(5);
+    expect(sql).not.toContain("for all");
   });
 
   it("composes, guards dependencies, removes, and ejects a golden project", async () => {
     const projectRoot = await initializedProject();
     const catalog = await officialCatalog();
     const addPlan = await createModuleAddPlan(projectRoot, ["rbac", "audit"], catalog);
-    expect(addPlan.resolved).toEqual(["auth", "organizations", "audit", "rbac"]);
+    expect(addPlan.resolved).toEqual(["auth", "organizations", "rbac", "audit"]);
     await applyModuleAddPlan(addPlan, catalog);
 
     const project = await json(path.join(projectRoot, ".flower/project.json")) as { modules: Record<string, string> };
@@ -123,8 +131,8 @@ describe("official module catalog", () => {
       code: "module.requiredByInstalled"
     });
 
-    await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "rbac", "remove", catalog), catalog);
     await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "audit", "eject", catalog), catalog);
+    await applyModuleDispositionPlan(await createModuleDispositionPlan(projectRoot, "rbac", "remove", catalog), catalog);
     const finalProject = await json(path.join(projectRoot, ".flower/project.json")) as { modules: Record<string, string> };
     const ownership = await json(path.join(projectRoot, ".flower/ownership.json")) as {
       rules: Array<{ pattern: string; owner: string }>;

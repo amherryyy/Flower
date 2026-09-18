@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "rbac-002",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["organizations-002", "rbac-001"],
+  "verificationQueries": [
+    {
+      "id": "rbac-policies-present",
+      "sql": "select count(*) = 2 as verified from pg_policies where schemaname = 'public' and policyname in ('roles_select_members', 'role_permissions_select_members');",
+      "expected": true
+    },
+    {
+      "id": "permission-helper-private",
+      "sql": "select not has_function_privilege('public', 'flower_private.has_organization_permission(uuid,text)', 'execute') and has_function_privilege('authenticated', 'flower_private.has_organization_permission(uuid,text)', 'execute') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Drop the two RBAC select policies, revoke authenticated table privileges, then drop flower_private.has_organization_permission(uuid, text).",
+  "rls": {
+    "tables": ["public.roles", "public.role_permissions"],
+    "mode": "policies-required"
+  }
+}

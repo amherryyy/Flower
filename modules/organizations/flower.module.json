@@ -8,7 +8,7 @@
   "conflictsWith": [],
   "provides": ["organization", "membership"],
   "configurationSchema": "./schemas/config.json",
-  "migrations": ["organizations-001"],
+  "migrations": ["organizations-001", "organizations-002"],
   "generatedPaths": ["src/flower/organizations.ts"],
   "requiredChecks": ["organization-contract"]
 }

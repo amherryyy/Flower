@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "organizations-002",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["organizations-001"],
+  "verificationQueries": [
+    {
+      "id": "organization-policies-present",
+      "sql": "select count(*) = 2 as verified from pg_policies where schemaname = 'public' and policyname in ('organizations_select_members', 'organization_memberships_select_members');",
+      "expected": true
+    },
+    {
+      "id": "membership-helper-private",
+      "sql": "select not has_function_privilege('public', 'flower_private.is_organization_member(uuid)', 'execute') and has_function_privilege('authenticated', 'flower_private.is_organization_member(uuid)', 'execute') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Drop the two member-select policies, revoke authenticated table privileges, then drop flower_private.is_organization_member(uuid). Preserve the private schema if later migrations use it.",
+  "rls": {
+    "tables": ["public.organizations", "public.organization_memberships"],
+    "mode": "policies-required"
+  }
+}

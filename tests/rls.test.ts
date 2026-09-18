@@ -43,7 +43,7 @@ class RlsCatalogClient implements PostgresMigrationClient {
     const state = this.states.get(table) ?? {
       relation_exists: true,
       rls_enabled: true,
-      policy_count: 0,
+      policy_count: 1,
       public_select: false,
       public_insert: false,
       public_update: false,
@@ -84,7 +84,7 @@ describe("PostgreSQL RLS baseline inspection", () => {
     client.states.set("public.roles", {
       relation_exists: true,
       rls_enabled: true,
-      policy_count: 1,
+      policy_count: 0,
       public_select: false,
       public_insert: false,
       public_update: false,
@@ -97,15 +97,23 @@ describe("PostgreSQL RLS baseline inspection", () => {
       "rls.missingTable",
       "rls.disabled",
       "rls.publicPrivilege",
-      "rls.unexpectedPolicy"
+      "rls.missingPolicy"
     ]));
   });
 
-  it("requires a policy when a descriptor declares policies-required", async () => {
+  it("uses the latest descriptor expectation when a table advances to policies-required", async () => {
     const modules = await catalog();
-    const audit = modules.find(({ manifest }) => manifest.id === "audit")!;
-    audit.migrations[0]!.descriptor.rls.mode = "policies-required";
-    const result = await inspectPostgresRlsBaseline(new RlsCatalogClient(), modules);
+    const client = new RlsCatalogClient();
+    client.states.set("public.audit_events", {
+      relation_exists: true,
+      rls_enabled: true,
+      policy_count: 0,
+      public_select: false,
+      public_insert: false,
+      public_update: false,
+      public_delete: false
+    });
+    const result = await inspectPostgresRlsBaseline(client, modules);
     expect(result.diagnostics).toContainEqual(expect.objectContaining({
       code: "rls.missingPolicy",
       table: "public.audit_events"

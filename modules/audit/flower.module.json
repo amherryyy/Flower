@@ -4,11 +4,11 @@
   "id": "audit",
   "version": "1.0.0",
   "compatibleFlower": ">=0.1.0 <0.2.0",
-  "dependsOn": { "organizations": "^1.0.0" },
+  "dependsOn": { "rbac": "^1.0.0" },
   "conflictsWith": [],
   "provides": ["audit-event", "audit-trail"],
   "configurationSchema": "./schemas/config.json",
-  "migrations": ["audit-001"],
+  "migrations": ["audit-001", "audit-002"],
   "generatedPaths": ["src/flower/audit.ts"],
   "requiredChecks": ["audit-contract"]
 }

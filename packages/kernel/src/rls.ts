@@ -2,7 +2,7 @@ import type { PostgresMigrationClient } from "./postgres-migration.js";
 import type { MigrationDescriptor, VerifiedModulePackage } from "./types.js";
 
 export interface RlsDiagnostic {
-  code: "rls.missingTable" | "rls.disabled" | "rls.publicPrivilege" | "rls.unexpectedPolicy" | "rls.missingPolicy" | "rls.conflictingExpectation" | "rls.invalidInspection";
+  code: "rls.missingTable" | "rls.disabled" | "rls.publicPrivilege" | "rls.unexpectedPolicy" | "rls.missingPolicy" | "rls.invalidInspection";
   table: string;
   message: string;
 }
@@ -38,10 +38,6 @@ function expectations(packages: readonly VerifiedModulePackage[]): Map<string, M
   for (const modulePackage of packages) {
     for (const migration of modulePackage.migrations) {
       for (const table of migration.descriptor.rls.tables) {
-        const existing = result.get(table);
-        if (existing && existing !== migration.descriptor.rls.mode) {
-          throw new Error(`RLS table '${table}' has conflicting expectations '${existing}' and '${migration.descriptor.rls.mode}'`);
-        }
         result.set(table, migration.descriptor.rls.mode);
       }
     }
@@ -53,19 +49,7 @@ export async function inspectPostgresRlsBaseline(
   client: PostgresMigrationClient,
   packages: readonly VerifiedModulePackage[]
 ): Promise<RlsInspectionResult> {
-  let expected: Map<string, MigrationDescriptor["rls"]["mode"]>;
-  try {
-    expected = expectations(packages);
-  } catch (error) {
-    return {
-      valid: false,
-      diagnostics: [{
-        code: "rls.conflictingExpectation",
-        table: "*",
-        message: error instanceof Error ? error.message : "RLS expectations conflict"
-      }]
-    };
-  }
+  const expected = expectations(packages);
 
   const diagnostics: RlsDiagnostic[] = [];
   for (const [table, mode] of [...expected].sort(([left], [right]) => left.localeCompare(right))) {

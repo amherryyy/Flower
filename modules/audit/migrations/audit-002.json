@@ -1,0 +1,21 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "audit-002",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["audit-001", "rbac-002"],
+  "verificationQueries": [
+    {
+      "id": "audit-policy-present",
+      "sql": "select count(*) = 1 as verified from pg_policies where schemaname = 'public' and tablename = 'audit_events' and policyname = 'audit_events_select_authorized';",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Drop audit_events_select_authorized and revoke SELECT on public.audit_events from authenticated. Audit records remain intact.",
+  "rls": {
+    "tables": ["public.audit_events"],
+    "mode": "policies-required"
+  }
+}

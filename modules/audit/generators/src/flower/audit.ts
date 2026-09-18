@@ -3,7 +3,7 @@ export const flowerAuditModule = Object.freeze({
   id: {{moduleIdJson}},
   version: {{moduleVersionJson}},
   capabilities: ["audit-event", "audit-trail"] as const,
-  dependencies: ["organizations"] as const,
+  dependencies: ["rbac"] as const,
   scope: "organization" as const,
   requiredChecks: ["audit-contract"] as const
 });

@@ -8,7 +8,7 @@
   "conflictsWith": [],
   "provides": ["authorization", "permission", "role"],
   "configurationSchema": "./schemas/config.json",
-  "migrations": ["rbac-001"],
+  "migrations": ["rbac-001", "rbac-002"],
   "generatedPaths": ["src/flower/rbac.ts"],
   "requiredChecks": ["rbac-contract"]
 }

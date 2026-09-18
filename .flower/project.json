@@ -45,7 +45,9 @@
     "officialDatabaseSchema": true,
     "migrationDescriptors": true,
     "migrationVerification": true,
-    "rlsInspection": true
+    "rlsInspection": true,
+    "rlsPolicyMigrations": true,
+    "rlsBehaviorScenarios": true
   },
   "quality": {
     "minimumCoverage": 80,
