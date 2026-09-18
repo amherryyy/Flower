@@ -56,7 +56,10 @@
     "secureApplicationHeaders": true,
     "durableRateLimits": true,
     "usageQuotas": true,
-    "failClosedLimitStorage": true
+    "failClosedLimitStorage": true,
+    "validatedUploads": true,
+    "allowlistedServiceRoleOperations": true,
+    "serviceRoleAuditMetadata": true
   },
   "quality": {
     "minimumCoverage": 80,

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://flower.dev/schemas/upload-policy/v1.json",
+  "schemaVersion": 1,
+  "maxBytes": 10485760,
+  "ownerScopes": ["user", "organization"],
+  "mediaTypes": [
+    {
+      "mediaType": "image/png",
+      "extensions": [".png"],
+      "signatures": ["89504e470d0a1a0a"]
+    },
+    {
+      "mediaType": "image/jpeg",
+      "extensions": [".jpg", ".jpeg"],
+      "signatures": ["ffd8ff"]
+    },
+    {
+      "mediaType": "application/pdf",
+      "extensions": [".pdf"],
+      "signatures": ["255044462d"]
+    }
+  ]
+}

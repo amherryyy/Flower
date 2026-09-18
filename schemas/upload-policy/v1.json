@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/upload-policy/v1.json",
+  "title": "Flower Upload Policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "maxBytes", "ownerScopes", "mediaTypes"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "maxBytes": { "type": "integer", "minimum": 1, "maximum": 104857600 },
+    "ownerScopes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "enum": ["user", "organization"] }
+    },
+    "mediaTypes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mediaType", "extensions", "signatures"],
+        "properties": {
+          "mediaType": { "type": "string", "pattern": "^[a-z0-9][a-z0-9!#$&^_.+-]*/[a-z0-9][a-z0-9!#$&^_.+-]*$" },
+          "extensions": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^\\.[a-z0-9]{1,10}$" }
+          },
+          "signatures": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^(?:[a-f0-9]{2})+$" }
+          }
+        }
+      }
+    }
+  }
+}

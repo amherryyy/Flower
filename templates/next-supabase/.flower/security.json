@@ -29,5 +29,9 @@
       { "name": "Strict-Transport-Security" }
     ],
     "forbiddenContentSecurityPolicyTokens": ["'unsafe-eval'"]
+  },
+  "uploads": {
+    "enabled": true,
+    "policyPath": ".flower/uploads.json"
   }
 }

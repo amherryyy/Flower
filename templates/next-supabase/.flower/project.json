@@ -22,7 +22,9 @@
     "multiTenant": false,
     "versionedSecurityBaseline": true,
     "offlineSecurityGate": true,
-    "secureApplicationHeaders": true
+    "secureApplicationHeaders": true,
+    "versionedUploadPolicy": true,
+    "serviceRoleClientAbsentByDefault": true
   },
   "quality": {
     "minimumCoverage": 80,

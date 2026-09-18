@@ -104,6 +104,12 @@ describe("flower CLI", () => {
     expect(result.stdout).toContain("Flower validation passed.");
   });
 
+  it("validates the template upload policy with its declared schema", () => {
+    const result = run("validate", "templates/next-supabase/.flower/uploads.json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Flower validation passed.");
+  });
+
   it("runs the offline security policy gate", () => {
     const result = run("security", "check", "--json");
     expect(result.status).toBe(0);
@@ -121,7 +127,8 @@ describe("flower CLI", () => {
       schemaVersion: 1,
       secretScan: { maxFileBytes: 1048576, exclude: [] },
       dependencies: { requireLockfile: true, forbidUnpinnedTags: true, forbidRemoteSources: true },
-      headers: { enabled: false, file: "next.config.ts", required: [], forbiddenContentSecurityPolicyTokens: [] }
+      headers: { enabled: false, file: "next.config.ts", required: [], forbiddenContentSecurityPolicyTokens: [] },
+      uploads: { enabled: false, policyPath: ".flower/uploads.json" }
     }));
     const result = run("security", "check", "--project", directory, "--json");
     expect(result.status).toBe(6);

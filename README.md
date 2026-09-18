@@ -25,6 +25,8 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - narrow authorization-management workflows with database-enforced final-owner protection;
 - a versioned offline security baseline with redacted secret, dependency, lockfile, and application-header checks;
 - durable PostgreSQL rate limits and per-user or per-organization usage quotas with no in-memory fallback;
+- versioned upload policies plus server-side name, size, type, signature, and owner validation;
+- immutable service-role operation allowlists with authorization, scoped fields, fixed projections, and metadata-only audit attempts;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -62,6 +64,8 @@ All commands support `--json` for deterministic automation output. Flower does n
 
 `flower security check` validates `.flower/security.json`, scans bounded project text without following symbolic links, redacts detected credential values, checks dependency specifiers and the npm lockfile, and verifies the headers declared by web-application baselines. Policy failures use exit code `6`. This is intentionally an offline gate: its JSON summary reports `vulnerabilityDatabase: "not-configured"`, so passing it is not a claim that dependencies are free of published vulnerabilities. Run it through `npm run flower:security` in this repository.
 
+Web-project baselines also validate `.flower/uploads.json`. The starter accepts only PNG, JPEG, and PDF signatures up to 10 MiB; runtime validation additionally checks the file name, extension, authenticated user or organization ownership, and actual header bytes before storage. Signature checks are format guards, not malware scanning or content sanitization.
+
 ### Initialization options
 
 ```text
@@ -92,10 +96,12 @@ Authorization-state tables still have no direct application-role write policies.
 
 The `limits` module exposes service-role-only security-definer functions for rate limits and usage quotas. Counter updates lock one deterministic bucket row, so concurrent application instances share the same decision. Rate-limit subjects are HMAC-SHA-256 digests produced with a server-only secret; raw IP addresses or tokens are not stored. The kernel fails closed on storage errors and deliberately has no in-memory fallback. Applications choose policy values and map denials to their HTTP or job protocol.
 
+Privileged application data access goes through an immutable service-role operation registry. Every operation fixes the table, action, returned columns, allowed filters and writes, tenant column, authorization callback, and metadata-only audit attempt. The executor never exposes the raw privileged client and projects adapter results back to the registered columns. Next.js adapters holding the credential must use `import "server-only"`; the starter creates no service-role client by default.
+
 The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so policy and workflow SQL plus the behavior state machine are tested here without claiming a live tenant-isolation result. Isolated live execution and seeded member/outsider/anonymous/service-role cases remain required F4 work.
 
 `flower remove` refuses modules required by another installed module and deletes only generated files that still match their recorded checksums. `flower eject` has the same dependency guard but deliberately preserves current file contents—including project modifications—and transfers each path to exact project ownership. Both commands support dry-run/JSON plans, project-state preconditions, rollback, and local journals.
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, a deterministic offline security gate, and durable rate limits and quotas. Live database proof, counter-retention automation, online advisory and license integrations, upload enforcement, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, a deterministic offline security gate, durable rate limits and quotas, upload validation, and a narrow service-role boundary. Live database proof, counter-retention automation, malware scanning and file sanitization, online advisory and license integrations, workflow adapters, adoption, and framework updates remain later slices.

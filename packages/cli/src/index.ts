@@ -142,7 +142,7 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership" | "template" | "module" | "migration" | "security"
+  kind: "project" | "ownership" | "template" | "module" | "migration" | "security" | "upload-policy"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
@@ -177,6 +177,8 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
             ? "migration"
             : declaredSchema === "https://flower.dev/schemas/security/v1.json"
               ? "security"
+              : declaredSchema === "https://flower.dev/schemas/upload-policy/v1.json"
+                ? "upload-policy"
             : "project";
     return validateFile(
       target,
@@ -625,7 +627,8 @@ async function main(): Promise<number> {
     }
     const result = await checkProjectSecurity(
       args.values.project ?? ".",
-      await loadJson(path.join(schemaRoot(), "security", "v1.json")) as object
+      await loadJson(path.join(schemaRoot(), "security", "v1.json")) as object,
+      await loadJson(path.join(schemaRoot(), "upload-policy", "v1.json")) as object
     );
     printSecurity(result, args.json);
     return result.secure ? EXIT.success : EXIT.securityPolicy;

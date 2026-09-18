@@ -4,7 +4,7 @@
   "title": "Flower Security Baseline",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "secretScan", "dependencies", "headers"],
+  "required": ["schemaVersion", "secretScan", "dependencies", "headers", "uploads"],
   "properties": {
     "$schema": { "type": "string", "format": "uri-reference" },
     "schemaVersion": { "const": 1 },
@@ -56,6 +56,15 @@
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
         }
+      }
+    },
+    "uploads": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "policyPath"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "policyPath": { "type": "string", "minLength": 1 }
       }
     }
   }

@@ -32,6 +32,10 @@ export interface SecurityBaseline {
     required: Array<{ name: string; value?: string }>;
     forbiddenContentSecurityPolicyTokens: string[];
   };
+  uploads: {
+    enabled: boolean;
+    policyPath: string;
+  };
 }
 
 export interface SecurityCheckResult {
@@ -41,6 +45,7 @@ export interface SecurityCheckResult {
     filesScanned: number;
     packageManifestsScanned: number;
     headersChecked: number;
+    uploadPolicyChecked: boolean;
     vulnerabilityDatabase: "not-configured";
   };
 }

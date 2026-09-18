@@ -19,3 +19,5 @@ export * from "./rls-behavior.js";
 export * from "./official-rls-scenarios.js";
 export * from "./security.js";
 export * from "./usage-policy.js";
+export * from "./upload.js";
+export * from "./service-role.js";

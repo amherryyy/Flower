@@ -16,6 +16,10 @@ async function schema(): Promise<object> {
   return JSON.parse(await readFile(path.join(root, "schemas/security/v1.json"), "utf8")) as object;
 }
 
+async function uploadSchema(): Promise<object> {
+  return JSON.parse(await readFile(path.join(root, "schemas/upload-policy/v1.json"), "utf8")) as object;
+}
+
 function project(options: { headers?: boolean } = {}): string {
   const directory = mkdtempSync(path.join(tmpdir(), "flower-security-"));
   temporaryDirectories.push(directory);
@@ -30,7 +34,8 @@ function project(options: { headers?: boolean } = {}): string {
       file: "next.config.ts",
       required: [{ name: "X-Content-Type-Options", value: "nosniff" }],
       forbiddenContentSecurityPolicyTokens: ["'unsafe-eval'"]
-    }
+    },
+    uploads: { enabled: false, policyPath: ".flower/uploads.json" }
   }, null, 2));
   writeFileSync(path.join(directory, "package.json"), JSON.stringify({ dependencies: { example: "^1.0.0" } }));
   writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({ lockfileVersion: 3 }));
@@ -67,5 +72,18 @@ describe("offline security baseline", () => {
       "security.headers.missing",
       "security.headers.forbiddenCspToken"
     ]));
+  });
+
+  it("includes the versioned upload policy in the security gate", async () => {
+    const directory = project();
+    const baselinePath = path.join(directory, ".flower/security.json");
+    const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as { uploads: { enabled: boolean } };
+    baseline.uploads.enabled = true;
+    writeFileSync(baselinePath, JSON.stringify(baseline));
+    writeFileSync(path.join(directory, ".flower/uploads.json"), "{}");
+    const result = await checkProjectSecurity(directory, await schema(), await uploadSchema());
+    expect(result.secure).toBe(false);
+    expect(result.summary.uploadPolicyChecked).toBe(true);
+    expect(result.diagnostics.some((entry) => entry.path.includes(".flower/uploads.json"))).toBe(true);
   });
 });

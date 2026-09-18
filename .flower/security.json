@@ -22,5 +22,9 @@
     "file": "next.config.ts",
     "required": [],
     "forbiddenContentSecurityPolicyTokens": []
+  },
+  "uploads": {
+    "enabled": false,
+    "policyPath": ".flower/uploads.json"
   }
 }

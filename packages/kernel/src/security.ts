@@ -181,9 +181,36 @@ async function scanHeaders(root: string, baseline: SecurityBaseline, diagnostics
   return baseline.headers.required.length;
 }
 
+async function scanUploadPolicy(
+  root: string,
+  baseline: SecurityBaseline,
+  uploadPolicySchema: object | undefined,
+  diagnostics: Diagnostic[]
+): Promise<boolean> {
+  if (!baseline.uploads.enabled) return false;
+  if (!uploadPolicySchema) {
+    diagnostics.push(diagnostic("security.uploads.schemaMissing", baseline.uploads.policyPath, "Upload policy schema is unavailable."));
+    return false;
+  }
+  let relative: string;
+  try {
+    relative = normalizeProjectPath(baseline.uploads.policyPath);
+    const absolute = path.join(root, relative);
+    if ((await lstat(absolute)).isSymbolicLink()) throw new Error("Symbolic links are not accepted for the upload policy.");
+    const document = JSON.parse(await readFile(absolute, "utf8")) as unknown;
+    const result = validateDocument(uploadPolicySchema, document, "upload-policy");
+    diagnostics.push(...result.diagnostics.map((entry) => ({ ...entry, path: `${relative}${entry.path}` })));
+    return true;
+  } catch (error) {
+    diagnostics.push(diagnostic("security.uploads.policyRead", baseline.uploads.policyPath, error instanceof Error ? error.message : "Upload policy is unreadable."));
+    return false;
+  }
+}
+
 export async function checkProjectSecurity(
   projectRoot: string,
-  baselineSchema: object
+  baselineSchema: object,
+  uploadPolicySchema?: object
 ): Promise<SecurityCheckResult> {
   const root = path.resolve(projectRoot);
   const baselinePath = path.join(root, ".flower", "security.json");
@@ -191,6 +218,7 @@ export async function checkProjectSecurity(
     filesScanned: 0,
     packageManifestsScanned: 0,
     headersChecked: 0,
+    uploadPolicyChecked: false,
     vulnerabilityDatabase: "not-configured"
   };
   let baselineDocument: unknown;
@@ -218,15 +246,16 @@ export async function checkProjectSecurity(
       summary: emptySummary
     };
   }
-  const [filesScanned, packageManifestsScanned, headersChecked] = await Promise.all([
+  const [filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked] = await Promise.all([
     scanSecrets(root, files, baseline, diagnostics),
     scanDependencies(root, files, baseline, diagnostics),
-    scanHeaders(root, baseline, diagnostics)
+    scanHeaders(root, baseline, diagnostics),
+    scanUploadPolicy(root, baseline, uploadPolicySchema, diagnostics)
   ]);
   diagnostics.sort((left, right) => left.path.localeCompare(right.path) || left.code.localeCompare(right.code));
   return {
     secure: diagnostics.length === 0,
     diagnostics,
-    summary: { filesScanned, packageManifestsScanned, headersChecked, vulnerabilityDatabase: "not-configured" }
+    summary: { filesScanned, packageManifestsScanned, headersChecked, uploadPolicyChecked, vulnerabilityDatabase: "not-configured" }
   };
 }
