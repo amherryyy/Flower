@@ -293,6 +293,11 @@ export async function applyModuleDispositionPlan(
         throw new ModuleDispositionError(`Module package changed after planning: ${plannedPackage.id}`, "module.packageChanged");
       }
     }
+    for (const migration of currentPackage.migrations) {
+      if (sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest) {
+        throw new ModuleDispositionError(`Module package changed after planning: ${plannedPackage.id}`, "module.packageChanged");
+      }
+    }
   }
   for (const file of plan.files) {
     if (sha256(await readFile(await assertRegularManagedFile(plan.projectRoot, file.path))) !== file.currentDigest) {

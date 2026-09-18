@@ -11,3 +11,4 @@ export * from "./module.js";
 export * from "./module-package.js";
 export * from "./module-add.js";
 export * from "./module-disposition.js";
+export * from "./migration.js";

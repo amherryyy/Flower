@@ -224,6 +224,12 @@ export interface VerifiedModuleArtifact {
   sourceDigest: string;
 }
 
+export interface VerifiedModuleMigration {
+  id: string;
+  sourcePath: string;
+  sourceDigest: string;
+}
+
 export interface VerifiedModulePackage {
   root: string;
   manifestPath: string;
@@ -233,6 +239,34 @@ export interface VerifiedModulePackage {
   manifest: ModuleManifest;
   digest: string;
   artifacts: VerifiedModuleArtifact[];
+  migrations: VerifiedModuleMigration[];
+}
+
+export interface AppliedMigration {
+  id: string;
+  moduleId: string;
+  moduleVersion: string;
+  sourceDigest: string;
+}
+
+export interface MigrationPlanAction {
+  ordinal: number;
+  id: string;
+  moduleId: string;
+  moduleVersion: string;
+  sourceDigest: string;
+}
+
+export interface MigrationPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "migrate";
+  state: "apply" | "unchanged";
+  requestedModules: string[];
+  resolvedModules: string[];
+  applied: AppliedMigration[];
+  actions: MigrationPlanAction[];
 }
 
 export interface ModuleAddPlanFile {

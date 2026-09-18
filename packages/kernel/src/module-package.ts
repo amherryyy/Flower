@@ -2,7 +2,7 @@ import { readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { normalizeProjectPath } from "./ownership.js";
 import { sha256 } from "./template.js";
-import type { VerifiedModuleArtifact, VerifiedModulePackage } from "./types.js";
+import type { VerifiedModuleArtifact, VerifiedModuleMigration, VerifiedModulePackage } from "./types.js";
 import { validateModuleManifest } from "./module.js";
 import { assertValidJsonSchema } from "./validation.js";
 
@@ -45,12 +45,34 @@ export async function loadAndVerifyModulePackage(rootInput: string, schema: obje
     const source = await readFile(sourcePath);
     artifacts.push({ path: normalized, sourcePath, sourceDigest: sha256(source) });
   }
+
+  const migrations: VerifiedModuleMigration[] = [];
+  const expectedMigrationFiles = new Set(typedManifest.migrations.map((migrationId) => `${migrationId}.sql`));
+  try {
+    const migrationEntries = await readdir(path.join(root, "migrations"), { withFileTypes: true });
+    for (const entry of migrationEntries) {
+      if (entry.name.endsWith(".sql") && !expectedMigrationFiles.has(entry.name)) {
+        throw new Error(`Module migration file '${entry.name}' is not declared in the manifest`);
+      }
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  for (const migrationId of typedManifest.migrations) {
+    const sourcePath = await confinedFile(root, path.join("migrations", `${migrationId}.sql`));
+    const source = await readFile(sourcePath);
+    if (source.toString("utf8").trim().length === 0) {
+      throw new Error(`Module migration '${migrationId}' is empty`);
+    }
+    migrations.push({ id: migrationId, sourcePath, sourceDigest: sha256(source) });
+  }
   const manifestDigest = sha256(manifestBytes);
   const configurationDigest = sha256(configurationBytes);
   const digest = sha256(JSON.stringify({
     manifest: manifestDigest,
     configuration: configurationDigest,
-    artifacts: artifacts.map(({ path: artifactPath, sourceDigest }) => ({ path: artifactPath, sourceDigest }))
+    artifacts: artifacts.map(({ path: artifactPath, sourceDigest }) => ({ path: artifactPath, sourceDigest })),
+    migrations: migrations.map(({ id, sourceDigest }) => ({ id, sourceDigest }))
   }));
   return {
     root,
@@ -60,7 +82,8 @@ export async function loadAndVerifyModulePackage(rootInput: string, schema: obje
     configurationDigest,
     manifest: typedManifest,
     digest,
-    artifacts
+    artifacts,
+    migrations
   };
 }
 

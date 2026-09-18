@@ -294,6 +294,11 @@ export async function applyModuleAddPlan(
         throw new ModuleAddError(`Module package changed after planning: ${plannedModule.id}`, "module.packageChanged");
       }
     }
+    for (const migration of modulePackage.migrations) {
+      if (sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest) {
+        throw new ModuleAddError(`Module package changed after planning: ${plannedModule.id}`, "module.packageChanged");
+      }
+    }
   }
   if (plan.state === "unchanged") {
     return { status: "unchanged", planId: plan.planId, projectRoot: plan.projectRoot, installedModules: [], changedPaths: [] };

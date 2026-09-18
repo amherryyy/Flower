@@ -37,7 +37,9 @@
     "generatedFileTracking": true,
     "transactionalModuleRemove": true,
     "moduleEjection": true,
-    "officialModuleCatalog": true
+    "officialModuleCatalog": true,
+    "migrationRegistry": true,
+    "migrationPlanning": true
   },
   "quality": {
     "minimumCoverage": 80,
