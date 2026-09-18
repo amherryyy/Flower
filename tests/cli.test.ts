@@ -170,4 +170,25 @@ describe("flower CLI", () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("Unsupported option for flower add: --skip-install");
   });
+
+  it("removes and ejects installed modules through the CLI", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "disposition-project");
+    const catalog = "tests/fixtures/module-catalog";
+    expect(run("init", target, "--name", "Disposition Project", "--skip-install").status).toBe(0);
+    expect(run("add", "organizations", "--project", target, "--catalog", catalog).status).toBe(0);
+
+    const removed = run("remove", "organizations", "--project", target, "--catalog", catalog, "--json");
+    expect(removed.status).toBe(0);
+    expect(() => readFileSync(path.join(target, "src/flower/organizations.ts"))).toThrow();
+
+    const ejected = run("eject", "auth", "--project", target, "--catalog", catalog, "--json");
+    expect(ejected.status).toBe(0);
+    expect(readFileSync(path.join(target, "src/flower/auth.ts"), "utf8")).toContain("authModule");
+    const ownership = JSON.parse(readFileSync(path.join(target, ".flower/ownership.json"), "utf8")) as {
+      rules: Array<{ pattern: string; owner: string }>;
+    };
+    expect(ownership.rules).toContainEqual(expect.objectContaining({ pattern: "src/flower/auth.ts", owner: "project" }));
+    expect(run("validate", target).status).toBe(0);
+  });
 });

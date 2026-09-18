@@ -269,3 +269,38 @@ export interface ModuleAddResult {
   changedPaths: string[];
   journalPath?: string;
 }
+
+export type ModuleDisposition = "remove" | "eject";
+
+export interface ModuleDispositionPlanFile {
+  path: string;
+  currentDigest: string;
+  managedDigest: string;
+}
+
+export interface ModuleDispositionPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: ModuleDisposition;
+  state: "apply" | "unchanged";
+  projectRoot: string;
+  module: { id: string; version: string; digest: string };
+  packages: Array<{ id: string; version: string; digest: string }>;
+  files: ModuleDispositionPlanFile[];
+  preconditions: {
+    projectManifestDigest: string;
+    lockDigest: string;
+    ownershipDigest: string;
+  };
+}
+
+export interface ModuleDispositionResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  projectRoot: string;
+  moduleId: string;
+  command: ModuleDisposition;
+  changedPaths: string[];
+  journalPath?: string;
+}

@@ -30,7 +30,9 @@
     "moduleManifestValidation": true,
     "moduleResolution": true,
     "transactionalModuleAdd": true,
-    "generatedFileTracking": true
+    "generatedFileTracking": true,
+    "transactionalModuleRemove": true,
+    "moduleEjection": true
   },
   "quality": {
     "minimumCoverage": 80,

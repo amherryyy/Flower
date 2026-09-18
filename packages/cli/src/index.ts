@@ -8,11 +8,14 @@ import {
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
   ModuleAddError,
+  ModuleDispositionError,
+  applyModuleDispositionPlan,
   applyModuleAddPlan,
   applyInitPlan,
   combineValidationResults,
   createInitPlan,
   createModuleAddPlan,
+  createModuleDispositionPlan,
   loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
@@ -371,6 +374,8 @@ function printHelp(): void {
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
   process.stdout.write("              [--package-manager npm] [--dry-run] [--skip-install] [--git] [--json]\n");
   process.stdout.write("  flower add <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
+  process.stdout.write("  flower remove <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
+  process.stdout.write("  flower eject <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
 }
 
 async function main(): Promise<number> {
@@ -502,6 +507,52 @@ async function main(): Promise<number> {
         process.stderr.write(`${error instanceof Error ? error.message : "Module installation failed"}\n`);
       }
       return error instanceof ModuleAddError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
+    }
+  }
+
+  if (args.command === "remove" || args.command === "eject") {
+    if (!args.target) {
+      process.stderr.write(`flower ${args.command} requires a module id\n`);
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, ["project", "catalog"]);
+    if (unsupported.length > 0 || !args.install || args.initializeGit) {
+      const option = unsupported[0] ? `--${unsupported[0]}` : !args.install ? "--skip-install" : "--git";
+      process.stderr.write(`Unsupported option for flower ${args.command}: ${option}\n`);
+      return EXIT.invalidArguments;
+    }
+    const projectRoot = args.values.project ?? ".";
+    const catalogRoot = args.values.catalog ?? defaultModuleCatalogRoot();
+    try {
+      const moduleSchema = await loadJson(path.join(schemaRoot(), "module", "v1.json"));
+      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object);
+      const plan = await createModuleDispositionPlan(projectRoot, args.target, args.command, catalog);
+      if (args.dryRun) {
+        if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+        else {
+          process.stdout.write(`Module ${args.command} plan ${plan.planId}\n`);
+          process.stdout.write(`Project: ${plan.projectRoot}\n`);
+          process.stdout.write(`Module: ${plan.state === "unchanged" ? "unchanged" : `${plan.module.id}@${plan.module.version}`}\n`);
+          plan.files.forEach((file) => process.stdout.write(`- ${args.command === "remove" ? "delete" : "retain as project-owned"} ${file.path}\n`));
+        }
+        return EXIT.success;
+      }
+      const result = await applyModuleDispositionPlan(plan, catalog);
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else process.stdout.write(result.status === "unchanged" ? `Module '${args.target}' is not installed.\n` : `${args.command === "remove" ? "Removed" : "Ejected"} module: ${args.target}\n`);
+      return EXIT.success;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          success: false,
+          code: error instanceof ModuleDispositionError ? error.code : `module.${args.command}Failed`,
+          message: error instanceof Error ? error.message : `Module ${args.command} failed`,
+          diagnostics: error instanceof ModuleDispositionError ? error.diagnostics : []
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : `Module ${args.command} failed`}\n`);
+      }
+      return error instanceof ModuleDispositionError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
     }
   }
 
