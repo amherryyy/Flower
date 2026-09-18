@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "rbac-003",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["rbac-002"],
+  "verificationQueries": [
+    {
+      "id": "owner-triggers-present",
+      "sql": "select count(*) = 3 as verified from pg_trigger where not tgisinternal and tgname in ('organizations_require_owner', 'memberships_retain_owner', 'permissions_retain_owner');",
+      "expected": true
+    },
+    {
+      "id": "workflow-functions-private",
+      "sql": "select not has_function_privilege('public', 'flower_private.create_organization(uuid,uuid,text,text)', 'execute') and has_function_privilege('authenticated', 'flower_private.create_organization(uuid,uuid,text,text)', 'execute') and not has_function_privilege('public', 'flower_private.remove_organization_member(uuid,uuid)', 'execute') and has_function_privilege('authenticated', 'flower_private.remove_organization_member(uuid,uuid)', 'execute') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Revoke and drop the six authenticated workflow functions, drop the three constraint triggers and their trigger functions, then drop assert_organization_has_owner(uuid). Do not roll back while applications depend on final-owner enforcement.",
+  "rls": {
+    "tables": ["public.roles", "public.role_permissions"],
+    "mode": "policies-required"
+  }
+}

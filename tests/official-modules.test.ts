@@ -61,7 +61,7 @@ describe("official module catalog", () => {
       audit: ["audit-001", "audit-002"],
       auth: [],
       organizations: ["organizations-001", "organizations-002"],
-      rbac: ["rbac-001", "rbac-002"]
+      rbac: ["rbac-001", "rbac-002", "rbac-003"]
     };
     for (const modulePackage of catalog) {
       expect(modulePackage.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
@@ -85,6 +85,7 @@ describe("official module catalog", () => {
       "organizations-002",
       "rbac-001",
       "rbac-002",
+      "rbac-003",
       "audit-001",
       "audit-002"
     ]);
@@ -105,6 +106,10 @@ describe("official module catalog", () => {
     expect(sql).toContain("foreign key (organization_id, role_id)");
     expect(sql.match(/create policy/g)).toHaveLength(5);
     expect(sql).not.toContain("for all");
+    expect(sql.match(/create constraint trigger/g)).toHaveLength(3);
+    expect(sql).toContain("organization % must retain at least one owner");
+    expect(sql).toContain("create function flower_private.create_organization(");
+    expect(sql).toContain("create function flower_private.remove_organization_member(");
   });
 
   it("composes, guards dependencies, removes, and ejects a golden project", async () => {

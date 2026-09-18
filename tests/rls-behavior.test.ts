@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  officialRlsBehaviorScenarios,
   runPostgresRlsScenarios,
   type PostgresMigrationClient,
   type PostgresQueryResult
@@ -28,6 +29,27 @@ class BehaviorClient implements PostgresMigrationClient {
 }
 
 describe("PostgreSQL RLS behavior scenarios", () => {
+  it("provides canonical live cases for the official tenant model", () => {
+    const scenarios = officialRlsBehaviorScenarios({
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      ownerUserId: "00000000-0000-4000-8000-000000000002",
+      memberUserId: "00000000-0000-4000-8000-000000000003",
+      outsiderUserId: "00000000-0000-4000-8000-000000000004",
+      auditEventId: "00000000-0000-4000-8000-000000000005",
+      roleId: "00000000-0000-4000-8000-000000000006"
+    });
+    expect(scenarios.map(({ id }) => id)).toEqual([
+      "member-sees-organization",
+      "outsider-cannot-see-organization",
+      "owner-with-permission-sees-audit",
+      "member-without-permission-cannot-see-audit",
+      "anonymous-cannot-read-organizations",
+      "member-cannot-write-role-table",
+      "last-owner-cannot-remove-self"
+    ]);
+    expect(scenarios.every(({ values }) => values?.length || values === undefined)).toBe(true);
+  });
+
   it("isolates and evaluates member, cross-tenant, anonymous, and denied-write cases", async () => {
     const client = new BehaviorClient();
     const result = await runPostgresRlsScenarios(client, [

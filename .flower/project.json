@@ -47,7 +47,9 @@
     "migrationVerification": true,
     "rlsInspection": true,
     "rlsPolicyMigrations": true,
-    "rlsBehaviorScenarios": true
+    "rlsBehaviorScenarios": true,
+    "authorizationWorkflows": true,
+    "finalOwnerEnforcement": true
   },
   "quality": {
     "minimumCoverage": 80,

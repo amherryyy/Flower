@@ -22,6 +22,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - versioned migration descriptors with transactional verification queries;
 - a PostgreSQL RLS catalog inspection harness;
 - explicit membership, RBAC, and audit-read policies plus an actor/tenant scenario runner;
+- narrow authorization-management workflows with database-enforced final-owner protection;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -82,10 +83,12 @@ PostgreSQL execution uses an injected client, a transaction-scoped advisory lock
 
 The RLS inspection harness reads PostgreSQL catalogs and checks every descriptor-owned table for existence, RLS enablement, public `SELECT`/`INSERT`/`UPDATE`/`DELETE` privileges, and the expected policy mode. The official descriptors now require policies. A separate behavior runner executes each actor/tenant case in its own rolled-back transaction, sets a validated database role and Supabase user claim, and supports both scalar visibility assertions and expected SQLSTATE authorization failures.
 
-The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so policy SQL and the behavior state machine are tested here without claiming a live tenant-isolation result. Isolated live execution, seeded member/outsider/anonymous/service-role cases, final-owner enforcement, and repair workflows remain required F4 work.
+Authorization-state tables still have no direct application-role write policies. Instead, private security-definer workflows atomically create an organization with its owner, create roles, manage permissions and memberships, and assign roles after checking explicit organization permissions. Deferred constraint triggers protect direct privileged mutations too: an organization cannot commit without at least one membership whose role carries `organization.owner`.
+
+The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so policy and workflow SQL plus the behavior state machine are tested here without claiming a live tenant-isolation result. Isolated live execution and seeded member/outsider/anonymous/service-role cases remain required F4 work.
 
 `flower remove` refuses modules required by another installed module and deletes only generated files that still match their recorded checksums. `flower eject` has the same dependency guard but deliberately preserves current file contents—including project modifications—and transfers each path to exact project ownership. Both commands support dry-run/JSON plans, project-state preconditions, rollback, and local journals.
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, and an actor/tenant scenario runner. Live database proof, write workflows and final-owner enforcement, broader security baselines, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, and final-owner enforcement. Live database proof, broader security baselines, workflow adapters, adoption, and framework updates remain later slices.
