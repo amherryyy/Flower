@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/security/v1.json",
+  "title": "Flower Security Baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "secretScan", "dependencies", "headers"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "secretScan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxFileBytes", "exclude"],
+      "properties": {
+        "maxFileBytes": { "type": "integer", "minimum": 1024, "maximum": 10485760 },
+        "exclude": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requireLockfile", "forbidUnpinnedTags", "forbidRemoteSources"],
+      "properties": {
+        "requireLockfile": { "type": "boolean" },
+        "forbidUnpinnedTags": { "type": "boolean" },
+        "forbidRemoteSources": { "type": "boolean" }
+      }
+    },
+    "headers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "file", "required", "forbiddenContentSecurityPolicyTokens"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "file": { "type": "string", "minLength": 1 },
+        "required": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "value": { "type": "string", "minLength": 1 }
+            }
+          }
+        },
+        "forbiddenContentSecurityPolicyTokens": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

@@ -14,6 +14,37 @@ export interface ValidationResult {
   diagnostics: Diagnostic[];
 }
 
+export interface SecurityBaseline {
+  $schema?: string;
+  schemaVersion: 1;
+  secretScan: {
+    maxFileBytes: number;
+    exclude: string[];
+  };
+  dependencies: {
+    requireLockfile: boolean;
+    forbidUnpinnedTags: boolean;
+    forbidRemoteSources: boolean;
+  };
+  headers: {
+    enabled: boolean;
+    file: string;
+    required: Array<{ name: string; value?: string }>;
+    forbiddenContentSecurityPolicyTokens: string[];
+  };
+}
+
+export interface SecurityCheckResult {
+  secure: boolean;
+  diagnostics: Diagnostic[];
+  summary: {
+    filesScanned: number;
+    packageManifestsScanned: number;
+    headersChecked: number;
+    vulnerabilityDatabase: "not-configured";
+  };
+}
+
 export type ProjectMode = "framework" | "project" | "module";
 
 export interface ProjectManifest {

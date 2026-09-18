@@ -49,7 +49,10 @@
     "rlsPolicyMigrations": true,
     "rlsBehaviorScenarios": true,
     "authorizationWorkflows": true,
-    "finalOwnerEnforcement": true
+    "finalOwnerEnforcement": true,
+    "versionedSecurityBaseline": true,
+    "offlineSecurityGate": true,
+    "secureApplicationHeaders": true
   },
   "quality": {
     "minimumCoverage": 80,

@@ -17,3 +17,4 @@ export * from "./node-postgres.js";
 export * from "./rls.js";
 export * from "./rls-behavior.js";
 export * from "./official-rls-scenarios.js";
+export * from "./security.js";

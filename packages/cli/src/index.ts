@@ -12,6 +12,7 @@ import {
   applyModuleDispositionPlan,
   applyModuleAddPlan,
   applyInitPlan,
+  checkProjectSecurity,
   combineValidationResults,
   createInitPlan,
   createModuleAddPlan,
@@ -26,6 +27,7 @@ import {
   type Diagnostic,
   type OwnershipManifest,
   type ProjectManifest,
+  type SecurityCheckResult,
   type ValidationResult
 } from "@flower/kernel";
 
@@ -33,6 +35,7 @@ const EXIT = {
   success: 0,
   failure: 1,
   invalidArguments: 2,
+  securityPolicy: 6,
   partial: 8
 } as const;
 
@@ -139,7 +142,7 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership" | "template" | "module" | "migration"
+  kind: "project" | "ownership" | "template" | "module" | "migration" | "security"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
@@ -172,6 +175,8 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
           ? "module"
           : declaredSchema === "https://flower.dev/schemas/migration/v1.json"
             ? "migration"
+            : declaredSchema === "https://flower.dev/schemas/security/v1.json"
+              ? "security"
             : "project";
     return validateFile(
       target,
@@ -373,6 +378,17 @@ function printStatus(result: Awaited<ReturnType<typeof statusTarget>>, json: boo
   process.stdout.write(`Ownership rules: ${result.ownershipRules}\n`);
 }
 
+function printSecurity(result: SecurityCheckResult, json: boolean): void {
+  if (json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(result.secure ? "Flower security check passed.\n" : "Flower security check failed.\n");
+  result.diagnostics.forEach((entry) => process.stdout.write(`${formatDiagnostic(entry)}\n`));
+  process.stdout.write(`Scanned ${result.summary.filesScanned} text files and ${result.summary.packageManifestsScanned} package manifests.\n`);
+  process.stdout.write("Live vulnerability database: not configured (offline baseline only).\n");
+}
+
 function printHelp(): void {
   process.stdout.write(`Flower ${FLOWER_VERSION}\n\n`);
   process.stdout.write("Usage:\n");
@@ -380,6 +396,7 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
+  process.stdout.write("  flower security check [--project <path>] [--json]\n");
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
   process.stdout.write("              [--package-manager npm] [--dry-run] [--skip-install] [--git] [--json]\n");
   process.stdout.write("  flower add <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
@@ -587,6 +604,31 @@ async function main(): Promise<number> {
     const result = await statusTarget(args.target ?? ".");
     printStatus(result, args.json);
     return result.valid ? EXIT.success : EXIT.failure;
+  }
+
+  if (args.command === "security") {
+    if (args.target !== "check") {
+      process.stderr.write("Usage: flower security check [--project <path>] [--json]\n");
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, ["project"]);
+    if (unsupported.length > 0 || args.dryRun || !args.install || args.initializeGit) {
+      const option = unsupported[0]
+        ? `--${unsupported[0]}`
+        : args.dryRun
+          ? "--dry-run"
+          : !args.install
+            ? "--skip-install"
+            : "--git";
+      process.stderr.write(`Unsupported option for flower security check: ${option}\n`);
+      return EXIT.invalidArguments;
+    }
+    const result = await checkProjectSecurity(
+      args.values.project ?? ".",
+      await loadJson(path.join(schemaRoot(), "security", "v1.json")) as object
+    );
+    printSecurity(result, args.json);
+    return result.secure ? EXIT.success : EXIT.securityPolicy;
   }
 
   process.stderr.write(`Unknown command: ${args.command}\n`);

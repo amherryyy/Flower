@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/security/v1.json",
+  "schemaVersion": 1,
+  "secretScan": {
+    "maxFileBytes": 1048576,
+    "exclude": [
+      ".git/**",
+      "node_modules/**",
+      "**/dist/**",
+      "coverage/**",
+      ".flower/cache/**",
+      ".flower/journal/local/**"
+    ]
+  },
+  "dependencies": {
+    "requireLockfile": true,
+    "forbidUnpinnedTags": true,
+    "forbidRemoteSources": true
+  },
+  "headers": {
+    "enabled": false,
+    "file": "next.config.ts",
+    "required": [],
+    "forbiddenContentSecurityPolicyTokens": []
+  }
+}

@@ -19,7 +19,10 @@
   },
   "modules": {},
   "capabilities": {
-    "multiTenant": false
+    "multiTenant": false,
+    "versionedSecurityBaseline": true,
+    "offlineSecurityGate": true,
+    "secureApplicationHeaders": true
   },
   "quality": {
     "minimumCoverage": 80,

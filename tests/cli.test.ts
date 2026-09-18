@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -96,6 +96,36 @@ describe("flower CLI", () => {
     const result = run("validate", "modules/organizations/migrations/organizations-001.json");
     expect(result.status).toBe(0);
     expect(result.stdout).toContain("Flower validation passed.");
+  });
+
+  it("validates a security baseline with its declared schema", () => {
+    const result = run("validate", ".flower/security.json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Flower validation passed.");
+  });
+
+  it("runs the offline security policy gate", () => {
+    const result = run("security", "check", "--json");
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout) as { secure: boolean; summary: { vulnerabilityDatabase: string } };
+    expect(output.secure).toBe(true);
+    expect(output.summary.vulnerabilityDatabase).toBe("not-configured");
+  });
+
+  it("uses the security-policy exit code for a failing gate", () => {
+    const directory = temporaryDirectory();
+    writeFileSync(path.join(directory, "package.json"), JSON.stringify({ dependencies: { unsafe: "latest" } }));
+    const control = path.join(directory, ".flower");
+    mkdirSync(control);
+    writeFileSync(path.join(control, "security.json"), JSON.stringify({
+      schemaVersion: 1,
+      secretScan: { maxFileBytes: 1048576, exclude: [] },
+      dependencies: { requireLockfile: true, forbidUnpinnedTags: true, forbidRemoteSources: true },
+      headers: { enabled: false, file: "next.config.ts", required: [], forbiddenContentSecurityPolicyTokens: [] }
+    }));
+    const result = run("security", "check", "--project", directory, "--json");
+    expect(result.status).toBe(6);
+    expect(JSON.parse(result.stdout)).toEqual(expect.objectContaining({ secure: false }));
   });
 
   it("prints a JSON initialization plan without writing the target", () => {

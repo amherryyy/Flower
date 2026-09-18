@@ -23,6 +23,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - a PostgreSQL RLS catalog inspection harness;
 - explicit membership, RBAC, and audit-read policies plus an actor/tenant scenario runner;
 - narrow authorization-management workflows with database-enforced final-owner protection;
+- a versioned offline security baseline with redacted secret, dependency, lockfile, and application-header checks;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -45,6 +46,7 @@ npm run typecheck
 npm run flower -- --version
 npm run flower -- doctor .
 npm run flower -- status .
+npm run flower -- security check
 npm run flower -- validate tests/fixtures/valid-project
 npm run flower -- validate tests/fixtures/invalid-project --json
 npm run flower -- init ../sample-app --name "Sample App" --dry-run
@@ -56,6 +58,8 @@ npm run flower -- eject audit --project ../sample-app --dry-run
 ```
 
 All commands support `--json` for deterministic automation output. Flower does not require network access or an external service to inspect, validate, or dry-run a project. Initialization installs dependencies and runs the template's tests, type-check, lint, and build by default. Use `--skip-install` only when materializing an offline project for later installation.
+
+`flower security check` validates `.flower/security.json`, scans bounded project text without following symbolic links, redacts detected credential values, checks dependency specifiers and the npm lockfile, and verifies the headers declared by web-application baselines. Policy failures use exit code `6`. This is intentionally an offline gate: its JSON summary reports `vulnerabilityDatabase: "not-configured"`, so passing it is not a claim that dependencies are free of published vulnerabilities. Run it through `npm run flower:security` in this repository.
 
 ### Initialization options
 
@@ -91,4 +95,4 @@ The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, and final-owner enforcement. Live database proof, broader security baselines, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, and a deterministic offline security gate. Live database proof, online advisory and license integrations, durable rate limiting, upload enforcement, workflow adapters, adoption, and framework updates remain later slices.

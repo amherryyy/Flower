@@ -17,6 +17,11 @@
       "policy": "never-commit"
     },
     {
+      "pattern": ".flower/security.json",
+      "owner": "protected",
+      "policy": "migration-engine-only"
+    },
+    {
       "pattern": "packages/**",
       "owner": "framework",
       "policy": "package-managed"
