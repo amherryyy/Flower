@@ -72,7 +72,8 @@
     "appendOnlyAuditEvents": true,
     "auditSensitivePayloadRejection": true,
     "failClosedUploadInspection": true,
-    "postSanitizationValidation": true
+    "postSanitizationValidation": true,
+    "postgresCertificationCi": true
   },
   "quality": {
     "minimumCoverage": 80,

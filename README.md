@@ -27,6 +27,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - durable PostgreSQL rate limits and per-user or per-organization usage quotas with no in-memory fallback;
 - versioned upload policies plus server-side name, size, type, signature, and owner validation;
 - a fail-closed scan, sanitize, revalidate, and rescan upload pipeline behind injected provider ports;
+- an isolated PostgreSQL 16 CI certification fixture for official migrations and tenant behavior;
 - immutable service-role operation allowlists with authorization, scoped fields, fixed projections, and metadata-only audit attempts;
 - structured, size-bounded logging with allowlisted fields, recursive personal-data redaction, and forbidden request-body or AI-prompt fields;
 - lockfile integrity and license-allowlist enforcement plus immutable CI action references;
@@ -108,7 +109,7 @@ Privileged application data access goes through an immutable service-role operat
 
 Structured logging uses stable event names and explicit attribute allowlists. Request bodies, raw bodies, AI prompts, message collections, and form data are rejected at any depth rather than merely masked. Configured secret and personal-data keys are recursively redacted, recognizable credentials and contact values are scrubbed from strings, and sanitized events are immutable and size-bounded before reaching an injected sink. Static source checks complement this runtime contract but do not replace data-flow-aware linting or review of third-party loggers.
 
-The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so policy and workflow SQL plus the behavior state machine are tested here without claiming a live tenant-isolation result. Isolated live execution and seeded member/outsider/anonymous/service-role cases remain required F4 work.
+The official SQL targets Supabase PostgreSQL and expects `auth.users`, `auth.uid()`, `authenticated`, and the service-role boundary to exist. The GitHub Actions PostgreSQL certification job supplies a minimal isolated equivalent, applies every official migration transactionally, seeds owner/member/outsider actors, and checks tenant visibility, audit permission isolation, final-owner enforcement, and RLS enablement. Local unit tests still use injected clients; a passing hosted certification job is required before claiming live proof for a revision.
 
 `flower remove` refuses modules required by another installed module and deletes only generated files that still match their recorded checksums. `flower eject` has the same dependency guard but deliberately preserves current file contents—including project modifications—and transfers each path to exact project ownership. Both commands support dry-run/JSON plans, project-state preconditions, rollback, and local journals.
 

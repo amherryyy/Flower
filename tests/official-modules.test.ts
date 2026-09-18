@@ -58,7 +58,7 @@ describe("official module catalog", () => {
     const catalog = await officialCatalog();
     expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "limits", "organizations", "rbac"]);
     const expectedMigrations: Record<string, string[]> = {
-      audit: ["audit-001", "audit-002", "audit-003"],
+      audit: ["audit-001", "audit-002", "audit-003", "audit-004"],
       auth: [],
       limits: ["limits-001", "limits-002"],
       organizations: ["organizations-001", "organizations-002"],
@@ -90,6 +90,7 @@ describe("official module catalog", () => {
       "audit-001",
       "audit-002",
       "audit-003",
+      "audit-004",
       "limits-001",
       "limits-002"
     ]);
