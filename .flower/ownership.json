@@ -22,6 +22,11 @@
       "policy": "package-managed"
     },
     {
+      "pattern": "modules/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
       "pattern": "schemas/**",
       "owner": "framework",
       "policy": "package-managed"

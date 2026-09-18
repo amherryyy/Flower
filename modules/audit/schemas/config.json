@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flower audit module configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "organizationScoped": { "type": "boolean" },
+    "retentionDays": { "type": "integer", "minimum": 1 },
+    "redactSensitiveValues": { "type": "boolean" }
+  }
+}

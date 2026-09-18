@@ -76,7 +76,7 @@ describe("flower CLI", () => {
     };
     expect(output.valid).toBe(true);
     expect(output.project).toEqual(expect.objectContaining({ id: "flower-framework", mode: "framework" }));
-    expect(output.modules).toEqual(["cli", "kernel"]);
+    expect(output.modules).toEqual(["audit", "auth", "cli", "kernel", "organizations", "rbac"]);
     expect(output.ownershipRules).toBeGreaterThan(0);
   });
 
@@ -163,6 +163,20 @@ describe("flower CLI", () => {
     expect(applied.status).toBe(0);
     const project = JSON.parse(readFileSync(path.join(target, ".flower/project.json"), "utf8")) as { modules: Record<string, string> };
     expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0" });
+  });
+
+  it("uses the bundled official module catalog by default", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "official-module-project");
+    expect(run("init", target, "--name", "Official Module Project", "--skip-install").status).toBe(0);
+
+    const applied = run("add", "rbac", "--project", target, "--json");
+    expect(applied.status).toBe(0);
+    const project = JSON.parse(readFileSync(path.join(target, ".flower/project.json"), "utf8")) as {
+      modules: Record<string, string>;
+    };
+    expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0", rbac: "1.0.0" });
+    expect(readFileSync(path.join(target, "src/flower/rbac.ts"), "utf8")).toContain("flowerRbacModule");
   });
 
   it("rejects initialization-only flags for module addition", () => {

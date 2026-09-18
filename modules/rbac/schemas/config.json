@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Flower RBAC module configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "denyByDefault": { "type": "boolean" },
+    "scope": { "const": "organization" }
+  }
+}

@@ -18,8 +18,12 @@
     "packageManager": "npm"
   },
   "modules": {
+    "audit": "1.0.0",
+    "auth": "1.0.0",
     "cli": "0.1.0",
-    "kernel": "0.1.0"
+    "kernel": "0.1.0",
+    "organizations": "1.0.0",
+    "rbac": "1.0.0"
   },
   "capabilities": {
     "manifestMigration": true,
@@ -32,7 +36,8 @@
     "transactionalModuleAdd": true,
     "generatedFileTracking": true,
     "transactionalModuleRemove": true,
-    "moduleEjection": true
+    "moduleEjection": true,
+    "officialModuleCatalog": true
   },
   "quality": {
     "minimumCoverage": 80,

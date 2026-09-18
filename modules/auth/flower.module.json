@@ -1,0 +1,14 @@
+{
+  "$schema": "https://flower.dev/schemas/module/v1.json",
+  "schemaVersion": 1,
+  "id": "auth",
+  "version": "1.0.0",
+  "compatibleFlower": ">=0.1.0 <0.2.0",
+  "dependsOn": {},
+  "conflictsWith": [],
+  "provides": ["identity", "session"],
+  "configurationSchema": "./schemas/config.json",
+  "migrations": [],
+  "generatedPaths": ["src/flower/auth.ts"],
+  "requiredChecks": ["auth-contract"]
+}
