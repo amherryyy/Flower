@@ -58,7 +58,7 @@ describe("official module catalog", () => {
     const catalog = await officialCatalog();
     expect(catalog.map(({ manifest }) => manifest.id)).toEqual(["audit", "auth", "limits", "organizations", "rbac"]);
     const expectedMigrations: Record<string, string[]> = {
-      audit: ["audit-001", "audit-002"],
+      audit: ["audit-001", "audit-002", "audit-003"],
       auth: [],
       limits: ["limits-001", "limits-002"],
       organizations: ["organizations-001", "organizations-002"],
@@ -89,6 +89,7 @@ describe("official module catalog", () => {
       "rbac-003",
       "audit-001",
       "audit-002",
+      "audit-003",
       "limits-001",
       "limits-002"
     ]);
@@ -118,6 +119,9 @@ describe("official module catalog", () => {
     expect(sql).toContain("create function flower_private.consume_rate_limit(");
     expect(sql).toContain("create function flower_private.consume_usage_quota(");
     expect(sql).toContain("create function flower_private.prune_limit_counters(");
+    expect(sql).toContain("create function flower_private.append_audit_event(");
+    expect(sql).toContain("audit_events_reject_row_mutation");
+    expect(sql).toContain("audit payload contains a forbidden field");
     expect(sql).toContain("for update skip locked");
     expect(sql).toContain("when 'month' then (counter.period_started_on + interval '1 month')::date");
     expect(sql).toContain("to service_role");

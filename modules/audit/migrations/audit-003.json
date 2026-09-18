@@ -1,0 +1,26 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "audit-003",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["audit-002"],
+  "verificationQueries": [
+    {
+      "id": "audit-append-service-only",
+      "sql": "select not has_function_privilege('public', 'flower_private.append_audit_event(uuid,uuid,text,text,text,jsonb)', 'execute') and not has_function_privilege('authenticated', 'flower_private.append_audit_event(uuid,uuid,text,text,text,jsonb)', 'execute') and has_function_privilege('service_role', 'flower_private.append_audit_event(uuid,uuid,text,text,text,jsonb)', 'execute') as verified;",
+      "expected": true
+    },
+    {
+      "id": "audit-mutation-triggers-present",
+      "sql": "select count(*) = 2 as verified from pg_trigger where tgrelid = 'public.audit_events'::regclass and tgname in ('audit_events_reject_row_mutation', 'audit_events_reject_truncate') and not tgisinternal;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Drop the two mutation triggers and their trigger function, revoke and drop append_audit_event, then drop assert_safe_audit_payload. Existing audit records remain unchanged.",
+  "rls": {
+    "tables": ["public.audit_events"],
+    "mode": "policies-required"
+  }
+}

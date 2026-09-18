@@ -68,7 +68,9 @@
     "licenseAllowlist": true,
     "immutableCiActions": true,
     "liveDependencyAuditCi": true,
-    "boundedCounterRetention": true
+    "boundedCounterRetention": true,
+    "appendOnlyAuditEvents": true,
+    "auditSensitivePayloadRejection": true
   },
   "quality": {
     "minimumCoverage": 80,
