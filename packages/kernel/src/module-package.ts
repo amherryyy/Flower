@@ -2,9 +2,9 @@ import { readFile, readdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import { normalizeProjectPath } from "./ownership.js";
 import { sha256 } from "./template.js";
-import type { VerifiedModuleArtifact, VerifiedModuleMigration, VerifiedModulePackage } from "./types.js";
+import type { MigrationDescriptor, VerifiedModuleArtifact, VerifiedModuleMigration, VerifiedModulePackage } from "./types.js";
 import { validateModuleManifest } from "./module.js";
-import { assertValidJsonSchema } from "./validation.js";
+import { assertValidJsonSchema, validateDocument } from "./validation.js";
 
 async function confinedFile(root: string, relativeInput: string): Promise<string> {
   const relative = normalizeProjectPath(relativeInput);
@@ -19,7 +19,7 @@ async function confinedFile(root: string, relativeInput: string): Promise<string
   return resolvedFile;
 }
 
-export async function loadAndVerifyModulePackage(rootInput: string, schema: object): Promise<VerifiedModulePackage> {
+export async function loadAndVerifyModulePackage(rootInput: string, schema: object, migrationSchema?: object): Promise<VerifiedModulePackage> {
   const root = path.resolve(rootInput);
   const manifestPath = path.join(root, "flower.module.json");
   const manifestBytes = await readFile(manifestPath);
@@ -59,12 +59,39 @@ export async function loadAndVerifyModulePackage(rootInput: string, schema: obje
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
   }
   for (const migrationId of typedManifest.migrations) {
+    if (!migrationSchema) throw new Error(`Migration schema is required to load module migration '${migrationId}'`);
     const sourcePath = await confinedFile(root, path.join("migrations", `${migrationId}.sql`));
+    const descriptorPath = await confinedFile(root, path.join("migrations", `${migrationId}.json`));
     const source = await readFile(sourcePath);
     if (source.toString("utf8").trim().length === 0) {
       throw new Error(`Module migration '${migrationId}' is empty`);
     }
-    migrations.push({ id: migrationId, sourcePath, sourceDigest: sha256(source) });
+    const descriptorBytes = await readFile(descriptorPath);
+    const descriptor = JSON.parse(descriptorBytes.toString("utf8")) as unknown;
+    const descriptorValidation = validateDocument(migrationSchema, descriptor, "migration");
+    if (!descriptorValidation.valid) {
+      throw new Error(`Migration descriptor is invalid: ${descriptorValidation.diagnostics.map((diagnostic) => `${diagnostic.path} ${diagnostic.message}`).join("; ")}`);
+    }
+    const typedDescriptor = descriptor as MigrationDescriptor;
+    if (typedDescriptor.id !== migrationId) throw new Error(`Migration descriptor id '${typedDescriptor.id}' does not match '${migrationId}'`);
+    if (typedDescriptor.dependsOn.includes(migrationId)) throw new Error(`Migration '${migrationId}' cannot depend on itself`);
+    if (new Set(typedDescriptor.verificationQueries.map(({ id }) => id)).size !== typedDescriptor.verificationQueries.length) {
+      throw new Error(`Migration '${migrationId}' contains duplicate verification query ids`);
+    }
+    if (typedDescriptor.rls.mode === "not-applicable" && typedDescriptor.rls.tables.length > 0) {
+      throw new Error(`Migration '${migrationId}' cannot declare RLS tables as not-applicable`);
+    }
+    if (typedDescriptor.rls.mode !== "not-applicable" && typedDescriptor.rls.tables.length === 0) {
+      throw new Error(`Migration '${migrationId}' must declare its RLS tables`);
+    }
+    migrations.push({
+      id: migrationId,
+      sourcePath,
+      sourceDigest: sha256(source),
+      descriptorPath,
+      descriptorDigest: sha256(descriptorBytes),
+      descriptor: typedDescriptor
+    });
   }
   const manifestDigest = sha256(manifestBytes);
   const configurationDigest = sha256(configurationBytes);
@@ -72,7 +99,7 @@ export async function loadAndVerifyModulePackage(rootInput: string, schema: obje
     manifest: manifestDigest,
     configuration: configurationDigest,
     artifacts: artifacts.map(({ path: artifactPath, sourceDigest }) => ({ path: artifactPath, sourceDigest })),
-    migrations: migrations.map(({ id, sourceDigest }) => ({ id, sourceDigest }))
+    migrations: migrations.map(({ id, sourceDigest, descriptorDigest }) => ({ id, sourceDigest, descriptorDigest }))
   }));
   return {
     root,
@@ -87,12 +114,12 @@ export async function loadAndVerifyModulePackage(rootInput: string, schema: obje
   };
 }
 
-export async function loadModuleCatalog(catalogRootInput: string, schema: object): Promise<VerifiedModulePackage[]> {
+export async function loadModuleCatalog(catalogRootInput: string, schema: object, migrationSchema?: object): Promise<VerifiedModulePackage[]> {
   const catalogRoot = path.resolve(catalogRootInput);
   const entries = await readdir(catalogRoot, { withFileTypes: true });
   const modules: VerifiedModulePackage[] = [];
   for (const entry of entries.filter((candidate) => candidate.isDirectory()).sort((left, right) => left.name.localeCompare(right.name))) {
-    modules.push(await loadAndVerifyModulePackage(path.join(catalogRoot, entry.name), schema));
+    modules.push(await loadAndVerifyModulePackage(path.join(catalogRoot, entry.name), schema, migrationSchema));
   }
   return modules;
 }

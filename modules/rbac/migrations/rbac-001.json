@@ -1,0 +1,21 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "rbac-001",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["organizations-001"],
+  "verificationQueries": [
+    {
+      "id": "rbac-fail-closed",
+      "sql": "select (select relrowsecurity from pg_class where oid = 'public.roles'::regclass) and (select relrowsecurity from pg_class where oid = 'public.role_permissions'::regclass) and not has_table_privilege('public', 'public.roles', 'select') and not has_table_privilege('public', 'public.roles', 'insert') and not has_table_privilege('public', 'public.role_permissions', 'select') and not has_table_privilege('public', 'public.role_permissions', 'insert') and exists (select 1 from pg_constraint where conname = 'organization_memberships_role_fk' and contype = 'f') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Remove project dependencies first. Dropping role_permissions and roles and removing organization_memberships.role_id destroys authorization assignments and is not automated.",
+  "rls": {
+    "tables": ["public.roles", "public.role_permissions"],
+    "mode": "deny-by-default"
+  }
+}

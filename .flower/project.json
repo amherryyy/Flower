@@ -42,7 +42,10 @@
     "migrationPlanning": true,
     "postgresMigrationExecution": true,
     "nodePostgresAdapter": true,
-    "officialDatabaseSchema": true
+    "officialDatabaseSchema": true,
+    "migrationDescriptors": true,
+    "migrationVerification": true,
+    "rlsInspection": true
   },
   "quality": {
     "minimumCoverage": 80,

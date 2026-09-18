@@ -28,8 +28,11 @@ async function json(filePath: string): Promise<unknown> {
 }
 
 async function officialCatalog(): Promise<VerifiedModulePackage[]> {
-  const schema = await json(path.join(root, "schemas/module/v1.json"));
-  return loadModuleCatalog(path.join(root, "modules"), schema as object);
+  const [moduleSchema, migrationSchema] = await Promise.all([
+    json(path.join(root, "schemas/module/v1.json")),
+    json(path.join(root, "schemas/migration/v1.json"))
+  ]);
+  return loadModuleCatalog(path.join(root, "modules"), moduleSchema as object, migrationSchema as object);
 }
 
 async function initializedProject(): Promise<string> {

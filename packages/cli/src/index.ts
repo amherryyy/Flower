@@ -139,7 +139,7 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership" | "template" | "module"
+  kind: "project" | "ownership" | "template" | "module" | "migration"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
@@ -157,13 +157,22 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
 
   if (extension === ".json") {
     const basename = path.basename(target);
+    let declaredSchema: string | undefined;
+    try {
+      const document = await loadJson(target) as { $schema?: unknown };
+      if (typeof document.$schema === "string") declaredSchema = document.$schema;
+    } catch {
+      // validateFile reports the stable read diagnostic below.
+    }
     const kind = basename === "ownership.json"
       ? "ownership"
       : basename === "flower.template.json"
         ? "template"
         : basename === "flower.module.json"
           ? "module"
-          : "project";
+          : declaredSchema === "https://flower.dev/schemas/migration/v1.json"
+            ? "migration"
+            : "project";
     return validateFile(
       target,
       path.join(schemaRoot(), kind, "v1.json"),
@@ -478,8 +487,11 @@ async function main(): Promise<number> {
     const projectRoot = args.values.project ?? ".";
     const catalogRoot = args.values.catalog ?? defaultModuleCatalogRoot();
     try {
-      const moduleSchema = await loadJson(path.join(schemaRoot(), "module", "v1.json"));
-      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object);
+      const [moduleSchema, migrationSchema] = await Promise.all([
+        loadJson(path.join(schemaRoot(), "module", "v1.json")),
+        loadJson(path.join(schemaRoot(), "migration", "v1.json"))
+      ]);
+      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object, migrationSchema as object);
       const plan = await createModuleAddPlan(projectRoot, [args.target], catalog);
       if (args.dryRun) {
         if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
@@ -524,8 +536,11 @@ async function main(): Promise<number> {
     const projectRoot = args.values.project ?? ".";
     const catalogRoot = args.values.catalog ?? defaultModuleCatalogRoot();
     try {
-      const moduleSchema = await loadJson(path.join(schemaRoot(), "module", "v1.json"));
-      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object);
+      const [moduleSchema, migrationSchema] = await Promise.all([
+        loadJson(path.join(schemaRoot(), "module", "v1.json")),
+        loadJson(path.join(schemaRoot(), "migration", "v1.json"))
+      ]);
+      const catalog = await loadModuleCatalog(catalogRoot, moduleSchema as object, migrationSchema as object);
       const plan = await createModuleDispositionPlan(projectRoot, args.target, args.command, catalog);
       if (args.dryRun) {
         if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);

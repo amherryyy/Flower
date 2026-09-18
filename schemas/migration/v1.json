@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/migration/v1.json",
+  "title": "Flower Migration Descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "provider",
+    "transaction",
+    "destructive",
+    "dependsOn",
+    "verificationQueries",
+    "rollbackGuidance",
+    "rls"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+    "provider": { "const": "postgresql" },
+    "transaction": { "const": "required" },
+    "destructive": { "enum": ["none", "review", "destructive"] },
+    "dependsOn": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "uniqueItems": true
+    },
+    "verificationQueries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "sql", "expected"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+          "sql": { "type": "string", "minLength": 1 },
+          "expected": {
+            "anyOf": [
+              { "type": "boolean" },
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "null" }
+            ]
+          }
+        }
+      }
+    },
+    "rollbackGuidance": { "type": "string", "minLength": 1 },
+    "rls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tables", "mode"],
+      "properties": {
+        "tables": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z_][a-z0-9_]*\\.[a-z_][a-z0-9_]*$" },
+          "uniqueItems": true
+        },
+        "mode": { "enum": ["not-applicable", "deny-by-default", "policies-required"] }
+      }
+    }
+  }
+}

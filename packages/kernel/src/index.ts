@@ -14,3 +14,4 @@ export * from "./module-disposition.js";
 export * from "./migration.js";
 export * from "./postgres-migration.js";
 export * from "./node-postgres.js";
+export * from "./rls.js";

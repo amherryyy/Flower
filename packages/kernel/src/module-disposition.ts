@@ -294,7 +294,10 @@ export async function applyModuleDispositionPlan(
       }
     }
     for (const migration of currentPackage.migrations) {
-      if (sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest) {
+      if (
+        sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest ||
+        sha256(await readFile(migration.descriptorPath)) !== migration.descriptorDigest
+      ) {
         throw new ModuleDispositionError(`Module package changed after planning: ${plannedPackage.id}`, "module.packageChanged");
       }
     }

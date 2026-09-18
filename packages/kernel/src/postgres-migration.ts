@@ -20,6 +20,10 @@ export interface MigrationExecutionResult {
   appliedMigrations: string[];
 }
 
+export interface MigrationExecutionOptions {
+  approvedDestructiveMigrationIds?: readonly string[];
+}
+
 export class MigrationExecutionError extends Error {
   readonly code: string;
   readonly rollbackComplete: boolean;
@@ -214,7 +218,8 @@ function assertNoTransactionControl(id: string, source: string): void {
 export async function applyPostgresMigrationPlan(
   plan: MigrationPlan,
   packages: readonly VerifiedModulePackage[],
-  client: PostgresMigrationClient
+  client: PostgresMigrationClient,
+  options: MigrationExecutionOptions = {}
 ): Promise<MigrationExecutionResult> {
   try {
     verifyMigrationPlan(plan);
@@ -227,7 +232,9 @@ export async function applyPostgresMigrationPlan(
 
   const packagesById = new Map(packages.map((modulePackage) => [modulePackage.manifest.id, modulePackage]));
   const sources = new Map<string, string>();
+  const migrations = new Map<string, VerifiedModulePackage["migrations"][number]>();
   const pendingIds = new Set(plan.actions.map(({ id }) => id));
+  const approvedDestructive = new Set(options.approvedDestructiveMigrationIds ?? []);
   for (const plannedMigration of [...plan.applied, ...plan.actions]) {
     const modulePackage = packagesById.get(plannedMigration.moduleId);
     const migration = modulePackage?.migrations.find((candidate) => candidate.id === plannedMigration.id);
@@ -240,13 +247,29 @@ export async function applyPostgresMigrationPlan(
       throw new MigrationExecutionError(`Migration package changed after planning: ${plannedMigration.id}`, "migration.packageChanged");
     }
     const source = await readFile(migration.sourcePath);
-    if (sha256(source) !== plannedMigration.sourceDigest) {
+    const descriptorBytes = await readFile(migration.descriptorPath);
+    if (sha256(source) !== plannedMigration.sourceDigest || sha256(descriptorBytes) !== migration.descriptorDigest) {
       throw new MigrationExecutionError(`Migration source changed after planning: ${plannedMigration.id}`, "migration.packageChanged");
     }
     if (pendingIds.has(plannedMigration.id)) {
+      const action = plan.actions.find(({ id }) => id === plannedMigration.id)!;
+      if (
+        action.descriptorDigest !== migration.descriptorDigest ||
+        action.destructive !== migration.descriptor.destructive ||
+        action.verificationQueries.join("\0") !== migration.descriptor.verificationQueries.map(({ id }) => id).join("\0")
+      ) {
+        throw new MigrationExecutionError(`Migration descriptor changed after planning: ${plannedMigration.id}`, "migration.packageChanged");
+      }
+      if (action.destructive === "destructive" && !approvedDestructive.has(action.id)) {
+        throw new MigrationExecutionError(`Destructive migration '${action.id}' requires explicit approval`, "migration.approvalRequired");
+      }
       const sql = source.toString("utf8");
       assertNoTransactionControl(plannedMigration.id, sql);
+      for (const verification of migration.descriptor.verificationQueries) {
+        assertNoTransactionControl(`${plannedMigration.id}/${verification.id}`, verification.sql);
+      }
       sources.set(plannedMigration.id, sql);
+      migrations.set(plannedMigration.id, migration);
     }
   }
 
@@ -263,6 +286,18 @@ export async function applyPostgresMigrationPlan(
 
     for (const action of plan.actions) {
       await client.query(sources.get(action.id)!);
+      const migration = migrations.get(action.id)!;
+      for (const verification of migration.descriptor.verificationQueries) {
+        const result = await client.query(verification.sql);
+        const row = result.rows[0];
+        const values = row ? Object.values(row) : [];
+        if (result.rows.length !== 1 || values.length !== 1 || !Object.is(values[0], verification.expected)) {
+          throw new MigrationExecutionError(
+            `Migration '${action.id}' verification '${verification.id}' failed`,
+            "migration.verificationFailed"
+          );
+        }
+      }
       await client.query(
         `insert into flower_internal.schema_migrations
           (id, module_id, module_version, source_digest, plan_id)

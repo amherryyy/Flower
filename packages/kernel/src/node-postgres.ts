@@ -1,4 +1,4 @@
-import { applyPostgresMigrationPlan, type MigrationExecutionResult, type PostgresMigrationClient, type PostgresQueryResult } from "./postgres-migration.js";
+import { applyPostgresMigrationPlan, type MigrationExecutionOptions, type MigrationExecutionResult, type PostgresMigrationClient, type PostgresQueryResult } from "./postgres-migration.js";
 import type { MigrationPlan, VerifiedModulePackage } from "./types.js";
 
 export interface NodePostgresPoolClient {
@@ -41,7 +41,8 @@ export async function withNodePostgresMigrationClient<Result>(
 export async function applyNodePostgresMigrationPlan(
   pool: NodePostgresPool,
   plan: MigrationPlan,
-  packages: readonly VerifiedModulePackage[]
+  packages: readonly VerifiedModulePackage[],
+  options: MigrationExecutionOptions = {}
 ): Promise<MigrationExecutionResult> {
-  return withNodePostgresMigrationClient(pool, (client) => applyPostgresMigrationPlan(plan, packages, client));
+  return withNodePostgresMigrationClient(pool, (client) => applyPostgresMigrationPlan(plan, packages, client, options));
 }

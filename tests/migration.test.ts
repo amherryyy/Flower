@@ -40,11 +40,24 @@ async function migrationCatalog(): Promise<Awaited<ReturnType<typeof loadModuleC
     await mkdir(path.join(moduleRoot, "migrations"));
     for (const migrationId of definition.migrations) {
       await writeFile(path.join(moduleRoot, "migrations", `${migrationId}.sql`), `-- ${migrationId}\nselect 1;\n`);
+      await writeFile(path.join(moduleRoot, "migrations", `${migrationId}.json`), `${JSON.stringify({
+        $schema: "https://flower.dev/schemas/migration/v1.json",
+        schemaVersion: 1,
+        id: migrationId,
+        provider: "postgresql",
+        transaction: "required",
+        destructive: "none",
+        dependsOn: [],
+        verificationQueries: [{ id: "smoke", sql: "select true as verified;", expected: true }],
+        rollbackGuidance: "Test fixture rollback guidance.",
+        rls: { tables: [], mode: "not-applicable" }
+      }, null, 2)}\n`);
     }
   }
 
   const schema = await json(path.join(root, "schemas/module/v1.json"));
-  return loadModuleCatalog(catalogRoot, schema);
+  const migrationSchema = await json(path.join(root, "schemas/migration/v1.json"));
+  return loadModuleCatalog(catalogRoot, schema, migrationSchema);
 }
 
 function applied(action: MigrationPlanAction): AppliedMigration {
@@ -66,7 +79,8 @@ describe("migration package verification", () => {
     const digestBefore = auth.digest;
     await writeFile(auth.migrations[0]!.sourcePath, "select 2;\n");
     const schema = await json(path.join(root, "schemas/module/v1.json"));
-    const reloaded = await loadModuleCatalog(path.dirname(auth.root), schema);
+    const migrationSchema = await json(path.join(root, "schemas/migration/v1.json"));
+    const reloaded = await loadModuleCatalog(path.dirname(auth.root), schema, migrationSchema);
     expect(reloaded.find(({ manifest }) => manifest.id === "auth")!.digest).not.toBe(digestBefore);
   });
 
@@ -75,17 +89,18 @@ describe("migration package verification", () => {
     const missing = missingCatalog.find(({ manifest }) => manifest.id === "auth")!;
     await rm(missing.migrations[0]!.sourcePath);
     const schema = await json(path.join(root, "schemas/module/v1.json"));
-    await expect(loadModuleCatalog(path.dirname(missing.root), schema)).rejects.toThrow();
+    const migrationSchema = await json(path.join(root, "schemas/migration/v1.json"));
+    await expect(loadModuleCatalog(path.dirname(missing.root), schema, migrationSchema)).rejects.toThrow();
 
     const emptyCatalog = await migrationCatalog();
     const empty = emptyCatalog.find(({ manifest }) => manifest.id === "auth")!;
     await writeFile(empty.migrations[0]!.sourcePath, "  \n");
-    await expect(loadModuleCatalog(path.dirname(empty.root), schema)).rejects.toThrow(/is empty/);
+    await expect(loadModuleCatalog(path.dirname(empty.root), schema, migrationSchema)).rejects.toThrow(/is empty/);
 
     const extraCatalog = await migrationCatalog();
     const extra = extraCatalog.find(({ manifest }) => manifest.id === "auth")!;
     await writeFile(path.join(extra.root, "migrations", "auth-999.sql"), "select 1;\n");
-    await expect(loadModuleCatalog(path.dirname(extra.root), schema)).rejects.toThrow(/not declared/);
+    await expect(loadModuleCatalog(path.dirname(extra.root), schema, migrationSchema)).rejects.toThrow(/not declared/);
   });
 });
 

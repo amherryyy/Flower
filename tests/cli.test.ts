@@ -92,6 +92,12 @@ describe("flower CLI", () => {
     expect(result.stdout).toContain("Flower validation passed.");
   });
 
+  it("validates a migration descriptor with its declared schema", () => {
+    const result = run("validate", "modules/organizations/migrations/organizations-001.json");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Flower validation passed.");
+  });
+
   it("prints a JSON initialization plan without writing the target", () => {
     const parent = temporaryDirectory();
     const target = path.join(parent, "planned-app");

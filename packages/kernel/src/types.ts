@@ -224,10 +224,35 @@ export interface VerifiedModuleArtifact {
   sourceDigest: string;
 }
 
+export interface MigrationVerificationQuery {
+  id: string;
+  sql: string;
+  expected: boolean | string | number | null;
+}
+
+export interface MigrationDescriptor {
+  $schema?: string;
+  schemaVersion: 1;
+  id: string;
+  provider: "postgresql";
+  transaction: "required";
+  destructive: "none" | "review" | "destructive";
+  dependsOn: string[];
+  verificationQueries: MigrationVerificationQuery[];
+  rollbackGuidance: string;
+  rls: {
+    tables: string[];
+    mode: "not-applicable" | "deny-by-default" | "policies-required";
+  };
+}
+
 export interface VerifiedModuleMigration {
   id: string;
   sourcePath: string;
   sourceDigest: string;
+  descriptorPath: string;
+  descriptorDigest: string;
+  descriptor: MigrationDescriptor;
 }
 
 export interface VerifiedModulePackage {
@@ -255,6 +280,9 @@ export interface MigrationPlanAction {
   moduleId: string;
   moduleVersion: string;
   sourceDigest: string;
+  descriptorDigest: string;
+  destructive: MigrationDescriptor["destructive"];
+  verificationQueries: string[];
 }
 
 export interface MigrationPlan {

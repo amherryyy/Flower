@@ -19,6 +19,8 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - transactionally applied PostgreSQL migrations behind a driver-neutral client port;
 - a node-postgres-compatible pooled-session adapter;
 - fail-closed official organization, RBAC, and audit schema migrations;
+- versioned migration descriptors with transactional verification queries;
+- a PostgreSQL RLS catalog inspection harness;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -73,9 +75,11 @@ Module packages use a strict manifest, a module-local configuration schema, and 
 
 The official catalog contains `auth`, `organizations`, `rbac`, and `audit`. The F3 integration contracts declare capabilities, dependencies, configuration shapes, generated boundaries, and checks. Their first F4 migrations create organizations, memberships, organization-scoped roles and permissions, and audit events. Every tenant table starts with RLS enabled and no application policies, so it is fail-closed rather than falsely presented as usable authorization.
 
-The F4 migration layer maps each manifest migration id to one non-empty `migrations/<id>.sql` file. Declared SQL participates in the module package digest, and undeclared SQL is rejected. Plans order migrations by the resolved module dependency graph and each manifest's declared order. Applied history must be an exact prefix with matching module version and source digest.
+The F4 migration layer maps each manifest migration id to one non-empty `migrations/<id>.sql` file and one schema-validated `migrations/<id>.json` descriptor. SQL and descriptor digests participate in module package identity. Descriptors declare provider, transaction support, destructive classification, migration dependencies, rollback guidance, verification queries, and RLS expectations. Plans order migrations by the module graph and declared dependencies; destructive actions require explicit per-migration approval.
 
-PostgreSQL execution uses an injected client, a transaction-scoped advisory lock, and the internal `flower_internal.schema_migrations` history table. The executor rechecks the plan, package sources, and locked database history before applying SQL; migration SQL and history inserts commit or roll back together. Migration files cannot contain their own transaction-control statements. The node-postgres-compatible adapter checks out one pool client for the entire operation and discards it after failure. Connection configuration remains application-owned.
+PostgreSQL execution uses an injected client, a transaction-scoped advisory lock, and the internal `flower_internal.schema_migrations` history table. The executor rechecks the plan, package sources, descriptors, and locked database history before applying SQL. Every declared verification query must return one scalar equal to its expected value before the history row is inserted; any mismatch rolls back the whole plan. Migration and verification SQL cannot contain their own transaction-control statements. The node-postgres-compatible adapter checks out one pool client for the entire operation and discards it after failure. Connection configuration remains application-owned.
+
+The RLS inspection harness reads PostgreSQL catalogs and checks every descriptor-owned table for existence, RLS enablement, public `SELECT`/`INSERT`/`UPDATE`/`DELETE` privileges, and the expected policy mode. The current official descriptors require zero policies as a deliberate deny-by-default stage; later policy migrations will switch those tables to `policies-required`.
 
 The official SQL targets Supabase PostgreSQL and expects `auth.users` to exist. This checkout does not contain Docker, PostgreSQL, or the `pg` package, so the SQL has package, order, lifecycle, and static fail-closed coverage here—not a claimed live database result. Isolated live execution, RLS policies, tenant-isolation proofs, migration verification queries, and repair workflows remain required F4 work.
 
@@ -83,4 +87,4 @@ The official SQL targets Supabase PostgreSQL and expects `auth.users` to exist. 
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, deterministic planner, transactional PostgreSQL execution, a node-postgres pool adapter, and the first fail-closed official schema. Live database verification, RLS policies and isolation tests, broader security baselines, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, and the first fail-closed official schema. Live database verification, RLS policies and tenant-isolation tests, broader security baselines, workflow adapters, adoption, and framework updates remain later slices.

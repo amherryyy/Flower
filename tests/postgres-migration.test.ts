@@ -41,9 +41,25 @@ async function migrationCatalog(): Promise<Awaited<ReturnType<typeof loadModuleC
     await mkdir(path.join(moduleRoot, "migrations"));
     for (const migrationId of definition.migrations) {
       await writeFile(path.join(moduleRoot, "migrations", `${migrationId}.sql`), `-- ${migrationId}\nselect 1;\n`);
+      await writeFile(path.join(moduleRoot, "migrations", `${migrationId}.json`), `${JSON.stringify({
+        $schema: "https://flower.dev/schemas/migration/v1.json",
+        schemaVersion: 1,
+        id: migrationId,
+        provider: "postgresql",
+        transaction: "required",
+        destructive: "none",
+        dependsOn: [],
+        verificationQueries: [{ id: "smoke", sql: "select true as verified;", expected: true }],
+        rollbackGuidance: "Test fixture rollback guidance.",
+        rls: { tables: [], mode: "not-applicable" }
+      }, null, 2)}\n`);
     }
   }
-  return loadModuleCatalog(catalogRoot, await json(path.join(root, "schemas/module/v1.json")));
+  return loadModuleCatalog(
+    catalogRoot,
+    await json(path.join(root, "schemas/module/v1.json")),
+    await json(path.join(root, "schemas/migration/v1.json"))
+  );
 }
 
 class FakePostgres implements PostgresMigrationClient {
@@ -51,6 +67,7 @@ class FakePostgres implements PostgresMigrationClient {
   historyTableExists = false;
   queries: Array<{ text: string; values: readonly unknown[] }> = [];
   failWhenSqlIncludes?: string;
+  verificationValue = true;
   private snapshot?: { history: AppliedMigration[]; historyTableExists: boolean };
 
   async query<Row extends Record<string, unknown> = Record<string, unknown>>(
@@ -93,6 +110,8 @@ class FakePostgres implements PostgresMigrationClient {
         module_version: entry.moduleVersion,
         source_digest: entry.sourceDigest
       }));
+    } else if (normalized === "select true as verified;") {
+      rows = [{ verified: this.verificationValue }];
     }
     return { rows: rows as Row[] };
   }
@@ -240,6 +259,42 @@ describe("transactional PostgreSQL migration execution", () => {
     expect(client.historyTableExists).toBe(false);
   });
 
+  it("rolls back when a declared verification query fails", async () => {
+    const catalog = await migrationCatalog();
+    const plan = createMigrationPlan(catalog, ["auth"]);
+    const client = new FakePostgres();
+    client.verificationValue = false;
+
+    await expect(applyPostgresMigrationPlan(plan, catalog, client)).rejects.toMatchObject({
+      code: "migration.verificationFailed",
+      rollbackComplete: true
+    });
+    expect(client.queries.at(-1)?.text).toBe("rollback;");
+    expect(client.history).toEqual([]);
+  });
+
+  it("requires explicit approval for destructive migrations", async () => {
+    const catalog = await migrationCatalog();
+    const auth = catalog.find(({ manifest }) => manifest.id === "auth")!;
+    const descriptorPath = auth.migrations[0]!.descriptorPath;
+    const descriptor = await json(descriptorPath);
+    descriptor.destructive = "destructive";
+    await writeFile(descriptorPath, `${JSON.stringify(descriptor, null, 2)}\n`);
+    const reloaded = await loadModuleCatalog(
+      path.dirname(auth.root),
+      await json(path.join(root, "schemas/module/v1.json")),
+      await json(path.join(root, "schemas/migration/v1.json"))
+    );
+    const plan = createMigrationPlan(reloaded, ["auth"]);
+
+    await expect(applyPostgresMigrationPlan(plan, reloaded, new FakePostgres())).rejects.toMatchObject({
+      code: "migration.approvalRequired"
+    });
+    await expect(applyPostgresMigrationPlan(plan, reloaded, new FakePostgres(), {
+      approvedDestructiveMigrationIds: ["auth-001"]
+    })).resolves.toEqual(expect.objectContaining({ status: "completed" }));
+  });
+
   it("detects source changes before opening a transaction", async () => {
     const catalog = await migrationCatalog();
     const plan = createMigrationPlan(catalog, ["organizations"]);
@@ -270,7 +325,11 @@ describe("transactional PostgreSQL migration execution", () => {
     const catalog = await migrationCatalog();
     const auth = catalog.find(({ manifest }) => manifest.id === "auth")!;
     await writeFile(auth.migrations[0]!.sourcePath, "-- COMMIT in a comment is harmless\nselect 'BEGIN';\ncommit;\n");
-    const reloaded = await loadModuleCatalog(path.dirname(auth.root), await json(path.join(root, "schemas/module/v1.json")));
+    const reloaded = await loadModuleCatalog(
+      path.dirname(auth.root),
+      await json(path.join(root, "schemas/module/v1.json")),
+      await json(path.join(root, "schemas/migration/v1.json"))
+    );
     const plan = createMigrationPlan(reloaded, ["auth"]);
     const client = new FakePostgres();
 

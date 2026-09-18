@@ -1,0 +1,21 @@
+{
+  "$schema": "https://flower.dev/schemas/migration/v1.json",
+  "schemaVersion": 1,
+  "id": "audit-001",
+  "provider": "postgresql",
+  "transaction": "required",
+  "destructive": "none",
+  "dependsOn": ["organizations-001"],
+  "verificationQueries": [
+    {
+      "id": "audit-fail-closed",
+      "sql": "select (select relrowsecurity from pg_class where oid = 'public.audit_events'::regclass) and not has_table_privilege('public', 'public.audit_events', 'select') and not has_table_privilege('public', 'public.audit_events', 'insert') and not has_table_privilege('public', 'public.audit_events', 'update') and not has_table_privilege('public', 'public.audit_events', 'delete') as verified;",
+      "expected": true
+    }
+  ],
+  "rollbackGuidance": "Export audit_events before rollback. Dropping the table destroys security history and requires explicit operational approval; rollback is not automated.",
+  "rls": {
+    "tables": ["public.audit_events"],
+    "mode": "deny-by-default"
+  }
+}

@@ -295,7 +295,10 @@ export async function applyModuleAddPlan(
       }
     }
     for (const migration of modulePackage.migrations) {
-      if (sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest) {
+      if (
+        sha256(await readFile(migration.sourcePath)) !== migration.sourceDigest ||
+        sha256(await readFile(migration.descriptorPath)) !== migration.descriptorDigest
+      ) {
         throw new ModuleAddError(`Module package changed after planning: ${plannedModule.id}`, "module.packageChanged");
       }
     }

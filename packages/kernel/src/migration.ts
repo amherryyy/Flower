@@ -122,8 +122,31 @@ export function createMigrationPlan(
         id: migration.id,
         moduleId,
         moduleVersion: modulePackage.manifest.version,
-        sourceDigest: migration.sourceDigest
+        sourceDigest: migration.sourceDigest,
+        descriptorDigest: migration.descriptorDigest,
+        destructive: migration.descriptor.destructive,
+        verificationQueries: migration.descriptor.verificationQueries.map(({ id }) => id)
       });
+    }
+  }
+
+  const orderedIds = new Map(ordered.map(({ id }, index) => [id, index]));
+  for (const action of ordered) {
+    const descriptor = registry.get(action.id)!.migration.descriptor;
+    for (const dependency of descriptor.dependsOn) {
+      const dependencyIndex = orderedIds.get(dependency);
+      if (dependencyIndex === undefined) {
+        throw new MigrationPlanError(
+          `Migration '${action.id}' depends on unknown migration '${dependency}'`,
+          "migration.missingDependency"
+        );
+      }
+      if (dependencyIndex >= action.ordinal - 1) {
+        throw new MigrationPlanError(
+          `Migration '${action.id}' dependency '${dependency}' must precede it`,
+          "migration.dependencyOrder"
+        );
+      }
     }
   }
 
