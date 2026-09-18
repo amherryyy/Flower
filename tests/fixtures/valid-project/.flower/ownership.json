@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "pattern": ".flower/generated/**",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "src/domain/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    },
+    {
+      "pattern": "database/migrations/flower/**",
+      "owner": "protected",
+      "policy": "migration-engine-only"
+    },
+    {
+      "pattern": ".flower/cache/**",
+      "owner": "local",
+      "policy": "never-commit"
+    }
+  ]
+}

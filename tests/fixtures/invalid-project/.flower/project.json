@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "mode": "guess",
+  "project": {
+    "id": "Invalid Project Name",
+    "name": ""
+  },
+  "flower": {
+    "version": "latest",
+    "channel": "nightly"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node"
+  },
+  "unexpected": true
+}

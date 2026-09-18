@@ -1,0 +1,37 @@
+{
+  "$schema": "../schemas/project/v1.json",
+  "schemaVersion": 1,
+  "mode": "framework",
+  "project": {
+    "id": "flower-framework",
+    "name": "Flower",
+    "description": "An independently designed, agent-aware application development framework.",
+    "domain": "application-development"
+  },
+  "flower": {
+    "version": "0.1.0",
+    "channel": "development"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "packageManager": "npm"
+  },
+  "modules": {
+    "cli": "0.1.0",
+    "kernel": "0.1.0"
+  },
+  "capabilities": {
+    "manifestMigration": true,
+    "ownershipClassification": true,
+    "localJournal": true
+  },
+  "quality": {
+    "minimumCoverage": 80,
+    "requireArchitectureCheck": true,
+    "requireSecurityCheck": true
+  },
+  "adapters": {
+    "githubActions": true
+  }
+}

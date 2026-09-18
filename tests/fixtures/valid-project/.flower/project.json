@@ -1,0 +1,37 @@
+{
+  "$schema": "https://flower.dev/schemas/project/v1.json",
+  "schemaVersion": 1,
+  "mode": "project",
+  "project": {
+    "id": "valid-project",
+    "name": "Valid Project",
+    "description": "A valid Flower fixture",
+    "domain": "example"
+  },
+  "flower": {
+    "version": "0.1.0",
+    "channel": "development"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "web": "nextjs",
+    "database": "supabase-postgres",
+    "packageManager": "npm"
+  },
+  "modules": {
+    "auth": "1.0.0"
+  },
+  "capabilities": {
+    "multiTenant": true
+  },
+  "quality": {
+    "minimumCoverage": 80,
+    "requireArchitectureCheck": true,
+    "requireSecurityCheck": true
+  },
+  "adapters": {
+    "codex": true,
+    "claude": false
+  }
+}

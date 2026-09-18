@@ -1,0 +1,12 @@
+node_modules/
+**/dist/
+coverage/
+*.tsbuildinfo
+.flower/cache/
+.flower/journal/local/
+sources/
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db

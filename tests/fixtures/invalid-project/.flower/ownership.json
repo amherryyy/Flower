@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "pattern": "src/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    }
+  ]
+}

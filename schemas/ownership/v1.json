@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/ownership/v1.json",
+  "title": "Flower Ownership Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "rules"],
+  "properties": {
+    "version": { "const": 1 },
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pattern", "owner", "policy"],
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$"
+          },
+          "owner": {
+            "enum": ["framework", "generated", "project", "protected", "local"]
+          },
+          "policy": {
+            "enum": [
+              "package-managed",
+              "replace-if-unmodified",
+              "never-overwrite",
+              "migration-engine-only",
+              "never-commit"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "owner": { "const": "generated" } }, "required": ["owner"] },
+            "then": { "properties": { "policy": { "const": "replace-if-unmodified" } } }
+          },
+          {
+            "if": { "properties": { "owner": { "const": "project" } }, "required": ["owner"] },
+            "then": { "properties": { "policy": { "const": "never-overwrite" } } }
+          },
+          {
+            "if": { "properties": { "owner": { "const": "protected" } }, "required": ["owner"] },
+            "then": { "properties": { "policy": { "const": "migration-engine-only" } } }
+          },
+          {
+            "if": { "properties": { "owner": { "const": "local" } }, "required": ["owner"] },
+            "then": { "properties": { "policy": { "const": "never-commit" } } }
+          }
+        ]
+      }
+    }
+  }
+}

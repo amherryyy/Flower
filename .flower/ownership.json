@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "pattern": ".flower/generated/**",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": ".flower/cache/**",
+      "owner": "local",
+      "policy": "never-commit"
+    },
+    {
+      "pattern": ".flower/journal/local/**",
+      "owner": "local",
+      "policy": "never-commit"
+    },
+    {
+      "pattern": "packages/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
+      "pattern": "schemas/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
+      "pattern": "tests/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
+      "pattern": "docs/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    },
+    {
+      "pattern": ".github/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    }
+  ]
+}

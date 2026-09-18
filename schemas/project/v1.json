@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/project/v1.json",
+  "title": "Flower Project Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "mode", "project", "flower", "stack"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "mode": { "enum": ["framework", "project", "module"] },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "minLength": 2,
+          "maxLength": 64
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 500 },
+        "domain": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        }
+      }
+    },
+    "flower": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "channel"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$" },
+        "channel": { "enum": ["stable", "preview", "development"] }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["language", "runtime", "packageManager"],
+      "properties": {
+        "language": { "type": "string", "minLength": 1 },
+        "runtime": { "type": "string", "minLength": 1 },
+        "web": { "type": "string", "minLength": 1 },
+        "database": { "type": "string", "minLength": 1 },
+        "packageManager": { "type": "string", "minLength": 1 }
+      }
+    },
+    "modules": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$"
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "minimumCoverage": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "requireArchitectureCheck": { "type": "boolean" },
+        "requireSecurityCheck": { "type": "boolean" }
+      }
+    },
+    "adapters": {
+      "type": "object",
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}

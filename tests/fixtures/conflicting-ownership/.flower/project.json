@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "mode": "project",
+  "project": {
+    "id": "conflicting-ownership",
+    "name": "Conflicting Ownership"
+  },
+  "flower": {
+    "version": "0.1.0",
+    "channel": "development"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "packageManager": "npm"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@flower/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Command-line interface for Flower",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "flower": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@flower/kernel": "0.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "pattern": "src/generated/**",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "src/generated/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    }
+  ]
+}
