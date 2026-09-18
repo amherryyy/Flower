@@ -39,7 +39,8 @@
     "moduleEjection": true,
     "officialModuleCatalog": true,
     "migrationRegistry": true,
-    "migrationPlanning": true
+    "migrationPlanning": true,
+    "postgresMigrationExecution": true
   },
   "quality": {
     "minimumCoverage": 80,

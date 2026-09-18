@@ -16,6 +16,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - transactional module add, remove, and eject operations;
 - official `auth`, `organizations`, `rbac`, and `audit` capability contracts;
 - checksummed SQL migration packages and deterministic migration planning;
+- transactionally applied PostgreSQL migrations behind a driver-neutral client port;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -70,10 +71,12 @@ Module packages use a strict manifest, a module-local configuration schema, and 
 
 The official catalog contains `auth`, `organizations`, `rbac`, and `audit`. These F3 modules are intentionally thin integration contracts: they declare capabilities, dependencies, configuration shapes, generated boundaries, and checks. They do not yet create database objects or claim runtime authentication, tenant isolation, authorization, or durable auditing. Those migrations and executable security guarantees are F4 work.
 
-The first F4 slice defines the migration registry and pure planner. A manifest migration id maps to one non-empty `migrations/<id>.sql` file; declared SQL participates in the module package digest, and undeclared SQL is rejected. Plans order migrations by the resolved module dependency graph and each manifest's declared order. Applied history must be an exact prefix with matching module version and source digest. Database connections, transaction execution, repair, rollback policy, and RLS verification are not implemented yet.
+The F4 migration layer maps each manifest migration id to one non-empty `migrations/<id>.sql` file. Declared SQL participates in the module package digest, and undeclared SQL is rejected. Plans order migrations by the resolved module dependency graph and each manifest's declared order. Applied history must be an exact prefix with matching module version and source digest.
+
+PostgreSQL execution uses an injected client, a transaction-scoped advisory lock, and the internal `flower_internal.schema_migrations` history table. The executor rechecks the plan, package sources, and locked database history before applying SQL; migration SQL and history inserts commit or roll back together. Migration files cannot contain their own transaction-control statements. Connection configuration, a concrete driver adapter, official schema migrations, repair workflows, and RLS verification remain follow-up work.
 
 `flower remove` refuses modules required by another installed module and deletes only generated files that still match their recorded checksums. `flower eject` has the same dependency guard but deliberately preserves current file contents—including project modifications—and transfers each path to exact project ownership. Both commands support dry-run/JSON plans, project-state preconditions, rollback, and local journals.
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration-file registry and deterministic planner; database execution, official schema migrations, security baselines, workflow adapters, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests, composes the four official capability contracts, and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, deterministic planner, and transactional PostgreSQL execution port; a concrete driver, official schema migrations, security baselines, workflow adapters, adoption, and framework updates remain later slices.
