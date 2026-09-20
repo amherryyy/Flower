@@ -76,7 +76,7 @@ export async function loadAndVerifyTemplate(rootInput: string, schema?: object):
     const contents = await readFile(await safeSourcePath(root, file));
     const actual = sha256(contents);
     if (actual !== file.digest) {
-      throw new Error(`Template digest mismatch for '${file.source}'`);
+      throw new Error(`Template digest mismatch for '${file.source}': expected ${file.digest}, received ${actual}`);
     }
   }
 

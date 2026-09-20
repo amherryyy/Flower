@@ -121,7 +121,9 @@ describe("F2 project initialization", () => {
     const copiedTemplate = path.join(copyRoot, "next-supabase");
     await cp(templateRoot, copiedTemplate, { recursive: true });
     await writeFile(path.join(copiedTemplate, "app/page.tsx"), "changed\n");
-    await expect(loadAndVerifyTemplate(copiedTemplate)).rejects.toThrow(/digest mismatch/);
+    await expect(loadAndVerifyTemplate(copiedTemplate)).rejects.toThrow(
+      /digest mismatch for 'app\/page\.tsx': expected sha256:[a-f0-9]{64}, received sha256:[a-f0-9]{64}/
+    );
     expect(() => packageManager("pnpm")).toThrow(/Unsupported package manager/);
 
     const template = await loadAndVerifyTemplate(templateRoot);
