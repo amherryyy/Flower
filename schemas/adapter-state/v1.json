@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/adapter-state/v1.json",
+  "title": "Flower Agent Adapter State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "generatorVersion", "artifacts"],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "generatorVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["adapter", "path", "inputDigest", "outputDigest"],
+        "properties": {
+          "adapter": { "enum": ["codex", "claude"] },
+          "path": { "enum": ["AGENTS.md", "CLAUDE.md"] },
+          "inputDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+          "outputDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+        }
+      }
+    }
+  }
+}

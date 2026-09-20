@@ -73,7 +73,11 @@
     "auditSensitivePayloadRejection": true,
     "failClosedUploadInspection": true,
     "postSanitizationValidation": true,
-    "postgresCertificationCi": true
+    "postgresCertificationCi": true,
+    "typedWorkflowEngine": true,
+    "durableWorkflowJournals": true,
+    "agentAdapterGeneration": true,
+    "agentAdapterDriftValidation": true
   },
   "quality": {
     "minimumCoverage": 80,

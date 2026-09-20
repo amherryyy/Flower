@@ -9,6 +9,9 @@
     { "pattern": ".flower/generated/**", "owner": "generated", "policy": "replace-if-unmodified" },
     { "pattern": ".flower/cache/**", "owner": "local", "policy": "never-commit" },
     { "pattern": ".flower/journal/local/**", "owner": "local", "policy": "never-commit" },
+    { "pattern": ".flower/journal/workflows/**", "owner": "local", "policy": "never-commit" },
+    { "pattern": "AGENTS.md", "owner": "generated", "policy": "replace-if-unmodified" },
+    { "pattern": "CLAUDE.md", "owner": "generated", "policy": "replace-if-unmodified" },
     { "pattern": "database/migrations/flower/**", "owner": "protected", "policy": "migration-engine-only" },
     { "pattern": "src/flower/**", "owner": "generated", "policy": "replace-if-unmodified" },
     { "pattern": "**", "owner": "project", "policy": "never-overwrite" }

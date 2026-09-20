@@ -11,10 +11,10 @@
     "database": "supabase-postgres"
   },
   "files": [
-    { "source": "_gitignore", "target": ".gitignore", "digest": "sha256:4d4001fef666662d62eaa74f7f0542d93d17ac56631137b4095c07d456a562a4" },
+    { "source": "_gitignore", "target": ".gitignore", "digest": "sha256:36d07f0d45111c4d3e67f10c2e08b421b5ef930ddbca6c2601f0e2aa3daec89a" },
     { "source": ".env.example", "target": ".env.example", "digest": "sha256:cb242010afc4b46d61b48b04c557f8b0fdd3fbc691f9ea5ca5476d6b9b13c277" },
     { "source": ".flower/lock.json", "target": ".flower/lock.json", "digest": "sha256:f120e19563892b9898339f80337b86e58b60a623a63a4ba1f9af59c245b492ff", "render": true },
-    { "source": ".flower/ownership.json", "target": ".flower/ownership.json", "digest": "sha256:1ae80a1358cd1896ea93b0703017b4dcddc95223cf5074b4a89543492e639936" },
+    { "source": ".flower/ownership.json", "target": ".flower/ownership.json", "digest": "sha256:d63717347639ee2d3436da2e0c46ded843735879c96bfa29a7c9579546acb53f" },
     { "source": ".flower/project.json", "target": ".flower/project.json", "digest": "sha256:20cd9f6ea3c83f582bc93723e6bbcabfffb42702e2fe948e0621da79dc9a1019", "render": true },
     { "source": ".flower/security.json", "target": ".flower/security.json", "digest": "sha256:051177b895030581cf4a5bb1f026ade4cf4445d0325194e9415a950b238849aa" },
     { "source": ".flower/uploads.json", "target": ".flower/uploads.json", "digest": "sha256:452889b3ad89bf74cb4d1a5b7a1273754df633bd27ece4998d1a65c7dfb2191a" },
