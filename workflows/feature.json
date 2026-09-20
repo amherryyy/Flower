@@ -1,0 +1,57 @@
+{
+  "$schema": "https://flower.dev/schemas/workflow/v1.json",
+  "schemaVersion": 1,
+  "id": "feature",
+  "version": 1,
+  "description": "Validate, approve, implement, and verify a project feature",
+  "inputs": [
+    { "id": "taskId", "type": "string", "required": true },
+    { "id": "summary", "type": "string", "required": true }
+  ],
+  "steps": [
+    {
+      "id": "preflight",
+      "action": "project.validate",
+      "reads": [".flower/**"],
+      "writes": [],
+      "externalEffects": []
+    },
+    {
+      "id": "plan",
+      "action": "feature.plan",
+      "reads": ["**"],
+      "writes": [".flower/journal/**"],
+      "externalEffects": []
+    },
+    {
+      "id": "approve",
+      "action": "approval.require",
+      "reads": [],
+      "writes": [],
+      "externalEffects": []
+    },
+    {
+      "id": "implement",
+      "action": "agent.delegate",
+      "reads": ["**"],
+      "writes": ["**"],
+      "externalEffects": ["agent.invoke"],
+      "ownership": { "allow": ["project"] }
+    },
+    {
+      "id": "verify",
+      "action": "checks.run",
+      "reads": ["**"],
+      "writes": [],
+      "externalEffects": ["process.execute"],
+      "checks": ["tests", "typecheck", "lint", "architecture", "security"]
+    },
+    {
+      "id": "record",
+      "action": "verification.write",
+      "reads": [".flower/journal/**"],
+      "writes": [".flower/journal/**"],
+      "externalEffects": []
+    }
+  ]
+}

@@ -56,6 +56,11 @@ function globToRegex(pattern: string): RegExp {
   return new RegExp(`${expression}$`);
 }
 
+export function matchesProjectPattern(pattern: string, inputPath: string): boolean {
+  const normalized = normalizeProjectPath(inputPath);
+  return normalized.length > 0 && globToRegex(pattern).test(normalized);
+}
+
 function patternSpecificity(pattern: string): number {
   return normalizePattern(pattern).replaceAll("**", "").replaceAll("*", "").length;
 }

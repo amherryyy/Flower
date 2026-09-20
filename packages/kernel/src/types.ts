@@ -426,3 +426,90 @@ export interface ModuleDispositionResult {
   changedPaths: string[];
   journalPath?: string;
 }
+
+export type WorkflowInputType = "string" | "number" | "boolean";
+
+export interface WorkflowInputDefinition {
+  id: string;
+  type: WorkflowInputType;
+  required: boolean;
+}
+
+export interface WorkflowStepDefinition {
+  id: string;
+  action: string;
+  reads: string[];
+  writes: string[];
+  externalEffects: string[];
+  ownership?: {
+    allow: OwnershipKind[];
+  };
+  checks?: string[];
+}
+
+export interface WorkflowDefinition {
+  $schema?: string;
+  schemaVersion: 1;
+  id: string;
+  version: number;
+  description: string;
+  inputs: WorkflowInputDefinition[];
+  steps: WorkflowStepDefinition[];
+}
+
+export interface WorkflowPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "workflow";
+  workflow: {
+    id: string;
+    version: number;
+    digest: string;
+  };
+  inputDigest: string;
+  steps: WorkflowStepDefinition[];
+}
+
+export type WorkflowStepStatus = "pending" | "completed" | "failed" | "awaiting-approval";
+
+export interface WorkflowRunJournal {
+  schemaVersion: 1;
+  runId: string;
+  planId: string;
+  planDigest: string;
+  workflowId: string;
+  status: "running" | "awaiting-approval" | "completed" | "failed";
+  nextStepIndex: number;
+  steps: Array<{
+    id: string;
+    action: string;
+    status: WorkflowStepStatus;
+  }>;
+  errorCode?: string;
+}
+
+export interface WorkflowStepReport {
+  writes: string[];
+  externalEffects: string[];
+}
+
+export interface WorkflowActionContext {
+  inputs: Readonly<Record<string, string | number | boolean>>;
+  step: Readonly<WorkflowStepDefinition>;
+  completedSteps: readonly string[];
+}
+
+export type WorkflowActionHandler = (
+  context: WorkflowActionContext
+) => Promise<WorkflowStepReport>;
+
+export interface WorkflowJournalStore {
+  load(planId: string): Promise<WorkflowRunJournal | undefined>;
+  save(journal: WorkflowRunJournal): Promise<void>;
+}
+
+export interface WorkflowRunOptions {
+  approvals?: string[];
+  ownership?: OwnershipManifest;
+}
