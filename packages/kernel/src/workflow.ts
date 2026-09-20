@@ -238,6 +238,7 @@ export function verifyWorkflowPlan(plan: WorkflowPlan): void {
 function initialJournal(plan: WorkflowPlan): WorkflowRunJournal {
   return {
     schemaVersion: 1,
+    revision: 0,
     runId: plan.planId,
     planId: plan.planId,
     planDigest: plan.digest,
@@ -251,6 +252,8 @@ function initialJournal(plan: WorkflowPlan): WorkflowRunJournal {
 function verifyJournal(journal: WorkflowRunJournal, plan: WorkflowPlan): void {
   const matches =
     journal.schemaVersion === 1 &&
+    Number.isInteger(journal.revision) &&
+    journal.revision >= 0 &&
     journal.planId === plan.planId &&
     journal.planDigest === plan.digest &&
     journal.workflowId === plan.workflow.id &&
@@ -259,8 +262,17 @@ function verifyJournal(journal: WorkflowRunJournal, plan: WorkflowPlan): void {
     journal.steps.length === plan.steps.length &&
     journal.steps.every((step, index) => {
       const planned = plan.steps[index];
-      return planned?.id === step.id && planned.action === step.action;
-    });
+      const positionValid =
+        index < journal.nextStepIndex
+          ? step.status === "completed"
+          : index === journal.nextStepIndex && journal.nextStepIndex < plan.steps.length
+            ? step.status !== "completed"
+            : step.status === "pending";
+      return planned?.id === step.id && planned.action === step.action && positionValid;
+    }) &&
+    (journal.status !== "completed" || journal.nextStepIndex === plan.steps.length) &&
+    (journal.status !== "awaiting-approval" || journal.steps[journal.nextStepIndex]?.status === "awaiting-approval") &&
+    (journal.status !== "failed" || journal.steps[journal.nextStepIndex]?.status === "failed");
   if (!matches) {
     throw new WorkflowExecutionError("Workflow journal does not match the verified plan", "workflow.journalDrift");
   }
