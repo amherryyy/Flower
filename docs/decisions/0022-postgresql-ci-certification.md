@@ -14,3 +14,5 @@ The fixture also exposed that the append function required a generated audit id.
 ## Consequences
 
 CI now executes official SQL against real PostgreSQL rather than treating mock-client tests as database proof. The fixture is intentionally narrower than hosted Supabase and does not certify provider extensions, deployment networking, backups, or production concurrency. Local environments without PostgreSQL can still run the deterministic unit suite.
+
+The first hosted run proved the PostgreSQL job and exposed an independent clean-checkout ordering issue: `flower:security` requires the compiled CLI. CI therefore performs an explicit build after installation and before invoking the security gate, rather than relying on locally retained build output.

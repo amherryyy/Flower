@@ -50,6 +50,9 @@ jobs:
         if: runner.os == 'Linux'
         run: npm audit --audit-level=high
 
+      - name: Build
+        run: npm run build
+
       - name: Check security policy
         run: npm run flower:security
 
