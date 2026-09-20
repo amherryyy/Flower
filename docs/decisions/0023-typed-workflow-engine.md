@@ -37,4 +37,4 @@ Phase F5 needs one canonical workflow definition to drive human, CI, and AI-tool
 
 ## Review date
 
-Review when the local journal adapter and first Codex, Claude, or CI adapter are introduced.
+Review when the first Codex, Claude, or CI adapter is introduced. ADR 0024 supplies the local journal adapter.

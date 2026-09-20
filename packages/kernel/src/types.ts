@@ -475,6 +475,7 @@ export type WorkflowStepStatus = "pending" | "completed" | "failed" | "awaiting-
 
 export interface WorkflowRunJournal {
   schemaVersion: 1;
+  revision: number;
   runId: string;
   planId: string;
   planDigest: string;
