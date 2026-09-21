@@ -25,6 +25,13 @@ function run(...args: string[]) {
   });
 }
 
+function enableAdapters(projectRoot: string, adapters: Record<string, boolean>): void {
+  const manifestPath = path.join(projectRoot, ".flower", "project.json");
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { adapters?: Record<string, boolean> };
+  manifest.adapters = adapters;
+  writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
 describe("flower CLI", () => {
   it("prints its version", () => {
     const result = run("--version");
@@ -236,6 +243,72 @@ describe("flower CLI", () => {
     const result = run("add", "auth", "--skip-install");
     expect(result.status).toBe(2);
     expect(result.stderr).toContain("Unsupported option for flower add: --skip-install");
+  });
+
+  it("dry-runs and transactionally synchronizes enabled agent adapters", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "adapter-project");
+    expect(run("init", target, "--name", "Adapter Project", "--skip-install").status).toBe(0);
+    enableAdapters(target, { codex: true, claude: true });
+
+    const dryRun = run("adapters", "sync", "--project", target, "--dry-run", "--json");
+    expect(dryRun.status).toBe(0);
+    const plan = JSON.parse(dryRun.stdout) as {
+      command: string;
+      state: string;
+      actions: Array<{ kind: string; path: string }>;
+    };
+    expect(plan.command).toBe("adapter-materialize");
+    expect(plan.state).toBe("apply");
+    expect(plan.actions.map(({ kind, path: actionPath }) => [kind, actionPath])).toEqual([
+      ["create", "AGENTS.md"],
+      ["create", "CLAUDE.md"],
+      ["create", ".flower/generated/agent-adapters.json"]
+    ]);
+    expect(() => readFileSync(path.join(target, "AGENTS.md"))).toThrow();
+
+    const applied = run("adapters", "sync", "--project", target, "--json");
+    expect(applied.status).toBe(0);
+    const output = JSON.parse(applied.stdout) as { result: { status: string; changedPaths: string[] } };
+    expect(output.result.status).toBe("completed");
+    expect(output.result.changedPaths).toContain("AGENTS.md");
+    expect(readFileSync(path.join(target, "AGENTS.md"), "utf8")).toContain("# Adapter Project — Codex adapter");
+    expect(readFileSync(path.join(target, "CLAUDE.md"), "utf8")).toContain("# Adapter Project — Claude adapter");
+    expect(run("validate", target).status).toBe(0);
+    expect(run("validate", path.join(target, ".flower/generated/agent-adapters.json")).status).toBe(0);
+    expect(run("validate", "workflows/feature.json").status).toBe(0);
+
+    const repeated = run("adapters", "sync", "--project", target, "--json");
+    expect(repeated.status).toBe(0);
+    expect((JSON.parse(repeated.stdout) as { result: { status: string } }).result.status).toBe("unchanged");
+  });
+
+  it("reports modified adapter output through sync and project validation", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "adapter-drift-project");
+    expect(run("init", target, "--name", "Adapter Drift Project", "--skip-install").status).toBe(0);
+    enableAdapters(target, { codex: true });
+    expect(run("adapters", "sync", "--project", target).status).toBe(0);
+    writeFileSync(path.join(target, "AGENTS.md"), "manual edit\n");
+
+    const sync = run("adapters", "sync", "--project", target, "--json");
+    expect(sync.status).toBe(1);
+    expect(JSON.parse(sync.stdout)).toEqual(expect.objectContaining({ code: "adapter.modified" }));
+
+    const validation = run("validate", target, "--json");
+    expect(validation.status).toBe(1);
+    const result = JSON.parse(validation.stdout) as { diagnostics: Array<{ code: string; path: string }> };
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({ code: "adapter.modified", path: "AGENTS.md" }));
+  });
+
+  it("rejects invalid adapter CLI forms", () => {
+    const missingSubcommand = run("adapters");
+    expect(missingSubcommand.status).toBe(2);
+    expect(missingSubcommand.stderr).toContain("flower adapters sync");
+
+    const unsupportedFlag = run("adapters", "sync", "--skip-install");
+    expect(unsupportedFlag.status).toBe(2);
+    expect(unsupportedFlag.stderr).toContain("Unsupported option for flower adapters sync: --skip-install");
   });
 
   it("removes and ejects installed modules through the CLI", () => {

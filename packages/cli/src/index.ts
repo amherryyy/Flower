@@ -5,18 +5,21 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FLOWER_VERSION,
+  AgentAdapterMaterializationError,
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
   ModuleAddError,
   ModuleDispositionError,
   applyModuleDispositionPlan,
   applyModuleAddPlan,
+  applyAgentAdapterMaterializationPlan,
   applyInitPlan,
   checkProjectSecurity,
   combineValidationResults,
   createInitPlan,
   createModuleAddPlan,
   createModuleDispositionPlan,
+  createAgentAdapterMaterializationPlan,
   loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
@@ -30,6 +33,7 @@ import {
   type SecurityCheckResult,
   type ValidationResult
 } from "@flower/kernel";
+import { loadAgentAdapterCliContext, validateProjectAgentAdapters } from "./agent-adapters.js";
 
 const EXIT = {
   success: 0,
@@ -142,7 +146,7 @@ function sourceDiagnostic(code: string, filePath: string, error: unknown): Valid
 async function validateFile(
   filePath: string,
   schemaPath: string,
-  kind: "project" | "ownership" | "template" | "module" | "migration" | "security" | "upload-policy"
+  kind: "project" | "ownership" | "template" | "module" | "migration" | "security" | "upload-policy" | "workflow" | "adapter-state"
 ): Promise<ValidationResult> {
   try {
     const [document, schema] = await Promise.all([loadJson(filePath), loadJson(schemaPath)]);
@@ -175,10 +179,14 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
           ? "module"
           : declaredSchema === "https://flower.dev/schemas/migration/v1.json"
             ? "migration"
-            : declaredSchema === "https://flower.dev/schemas/security/v1.json"
+          : declaredSchema === "https://flower.dev/schemas/security/v1.json"
               ? "security"
               : declaredSchema === "https://flower.dev/schemas/upload-policy/v1.json"
                 ? "upload-policy"
+                : declaredSchema === "https://flower.dev/schemas/workflow/v1.json"
+                  ? "workflow"
+                  : declaredSchema === "https://flower.dev/schemas/adapter-state/v1.json"
+                    ? "adapter-state"
             : "project";
     return validateFile(
       target,
@@ -200,8 +208,10 @@ async function validateTarget(targetInput: string): Promise<ValidationResult> {
       "ownership"
     )
   ]);
-
-  return combineValidationResults(projectResult, ownershipResult);
+  const manifestValidation = combineValidationResults(projectResult, ownershipResult);
+  if (!manifestValidation.valid) return manifestValidation;
+  const projectRoot = path.dirname(controlDirectory);
+  return combineValidationResults(manifestValidation, await validateProjectAgentAdapters(projectRoot));
 }
 
 function controlDirectoryFor(targetInput: string): string {
@@ -399,6 +409,7 @@ function printHelp(): void {
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
   process.stdout.write("  flower security check [--project <path>] [--json]\n");
+  process.stdout.write("  flower adapters sync [--project <path>] [--dry-run] [--json]\n");
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
   process.stdout.write("              [--package-manager npm] [--dry-run] [--skip-install] [--git] [--json]\n");
   process.stdout.write("  flower add <module> [--project <path>] [--catalog <path>] [--dry-run] [--json]\n");
@@ -587,6 +598,61 @@ async function main(): Promise<number> {
         process.stderr.write(`${error instanceof Error ? error.message : `Module ${args.command} failed`}\n`);
       }
       return error instanceof ModuleDispositionError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
+    }
+  }
+
+  if (args.command === "adapters") {
+    if (args.target !== "sync") {
+      process.stderr.write("Usage: flower adapters sync [--project <path>] [--dry-run] [--json]\n");
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, ["project"]);
+    if (unsupported.length > 0 || !args.install || args.initializeGit) {
+      const option = unsupported[0] ? `--${unsupported[0]}` : !args.install ? "--skip-install" : "--git";
+      process.stderr.write(`Unsupported option for flower adapters sync: ${option}\n`);
+      return EXIT.invalidArguments;
+    }
+    try {
+      const context = await loadAgentAdapterCliContext(args.values.project ?? ".");
+      const plan = await createAgentAdapterMaterializationPlan(
+        context.projectRoot,
+        context.bundle,
+        context.stateSchema
+      );
+      if (args.dryRun) {
+        if (args.json) process.stdout.write(`${JSON.stringify(plan, null, 2)}\n`);
+        else {
+          process.stdout.write(`Agent adapter plan ${plan.planId}\n`);
+          process.stdout.write(`Project: ${plan.projectRoot}\n`);
+          if (plan.actions.length === 0) process.stdout.write("- unchanged\n");
+          else plan.actions.forEach((action) => process.stdout.write(`- ${action.kind} ${action.path}\n`));
+        }
+        return EXIT.success;
+      }
+      const result = await applyAgentAdapterMaterializationPlan(
+        plan,
+        context.bundle,
+        context.stateSchema
+      );
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else {
+        process.stdout.write(result.status === "unchanged"
+          ? "Agent adapters are already current.\n"
+          : `Materialized agent adapters: ${result.changedPaths.join(", ")}\n`);
+      }
+      return EXIT.success;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          success: false,
+          code: error instanceof AgentAdapterMaterializationError ? error.code : "adapter.syncFailed",
+          message: error instanceof Error ? error.message : "Agent adapter synchronization failed",
+          diagnostics: error instanceof AgentAdapterMaterializationError ? error.diagnostics : []
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : "Agent adapter synchronization failed"}\n`);
+      }
+      return error instanceof AgentAdapterMaterializationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
     }
   }
 

@@ -7,6 +7,21 @@
       "policy": "replace-if-unmodified"
     },
     {
+      "pattern": "AGENTS.md",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "CLAUDE.md",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "docs/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    },
+    {
       "pattern": "src/domain/**",
       "owner": "project",
       "policy": "never-overwrite"
