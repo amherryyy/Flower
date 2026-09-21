@@ -32,6 +32,11 @@
       "policy": "replace-if-unmodified"
     },
     {
+      "pattern": ".github/workflows/flower-generated.yml",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
       "pattern": ".flower/security.json",
       "owner": "protected",
       "policy": "migration-engine-only"

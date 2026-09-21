@@ -80,7 +80,8 @@
     "agentAdapterDriftValidation": true,
     "transactionalAgentAdapterMaterialization": true,
     "agentAdapterCliSync": true,
-    "agentAdapterProjectValidation": true
+    "agentAdapterProjectValidation": true,
+    "githubActionsAdapterGeneration": true
   },
   "quality": {
     "minimumCoverage": 80,

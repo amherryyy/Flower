@@ -16,8 +16,8 @@
         "additionalProperties": false,
         "required": ["adapter", "path", "inputDigest", "outputDigest"],
         "properties": {
-          "adapter": { "enum": ["codex", "claude"] },
-          "path": { "enum": ["AGENTS.md", "CLAUDE.md"] },
+          "adapter": { "enum": ["codex", "claude", "github-actions"] },
+          "path": { "enum": ["AGENTS.md", "CLAUDE.md", ".github/workflows/flower-generated.yml"] },
           "inputDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
           "outputDigest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
         }

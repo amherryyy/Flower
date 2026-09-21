@@ -238,7 +238,9 @@ export async function validateProjectAgentAdapters(projectRootInput: string): Pr
   try {
     const projectRoot = path.resolve(projectRootInput);
     const projectDocument = await loadJson(path.join(projectRoot, ".flower", "project.json")) as ProjectManifest;
-    const enabled = projectDocument.adapters?.codex === true || projectDocument.adapters?.claude === true;
+    const enabled = projectDocument.adapters?.codex === true
+      || projectDocument.adapters?.claude === true
+      || projectDocument.adapters?.githubActions === true;
     if (!enabled && !await adapterStateExists(projectRoot)) return { valid: true, diagnostics: [] };
     const context = await loadAgentAdapterCliContext(projectRoot);
     return await validateAgentAdapters(context.projectRoot, context.bundle, context.stateSchema);

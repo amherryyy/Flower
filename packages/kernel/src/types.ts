@@ -515,7 +515,7 @@ export interface WorkflowRunOptions {
   ownership?: OwnershipManifest;
 }
 
-export type AgentAdapterId = "codex" | "claude";
+export type AgentAdapterId = "codex" | "claude" | "github-actions";
 
 export interface AgentAdapterInput {
   project: ProjectManifest;
