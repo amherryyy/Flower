@@ -78,7 +78,9 @@
     "durableWorkflowJournals": true,
     "agentAdapterGeneration": true,
     "agentAdapterDriftValidation": true,
-    "transactionalAgentAdapterMaterialization": true
+    "transactionalAgentAdapterMaterialization": true,
+    "agentAdapterCliSync": true,
+    "agentAdapterProjectValidation": true
   },
   "quality": {
     "minimumCoverage": 80,
