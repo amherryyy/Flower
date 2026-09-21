@@ -283,6 +283,29 @@ describe("flower CLI", () => {
     expect((JSON.parse(repeated.stdout) as { result: { status: string } }).result.status).toBe("unchanged");
   });
 
+  it("synchronizes the GitHub Actions verification adapter", () => {
+    const parent = temporaryDirectory();
+    const target = path.join(parent, "ci-adapter-project");
+    expect(run("init", target, "--name", "CI Adapter Project", "--skip-install").status).toBe(0);
+    enableAdapters(target, { githubActions: true });
+
+    const dryRun = run("adapters", "sync", "--project", target, "--dry-run", "--json");
+    expect(dryRun.status).toBe(0);
+    const plan = JSON.parse(dryRun.stdout) as { actions: Array<{ kind: string; path: string }> };
+    expect(plan.actions.map(({ kind, path: actionPath }) => [kind, actionPath])).toEqual([
+      ["create", ".github/workflows/flower-generated.yml"],
+      ["create", ".flower/generated/agent-adapters.json"]
+    ]);
+
+    const applied = run("adapters", "sync", "--project", target, "--json");
+    expect(applied.status).toBe(0);
+    const workflow = readFileSync(path.join(target, ".github/workflows/flower-generated.yml"), "utf8");
+    expect(workflow).toContain("name: Flower generated verification");
+    expect(workflow).toContain("run: npm audit --audit-level=high");
+    expect(workflow).not.toContain("agent.delegate");
+    expect(run("validate", target).status).toBe(0);
+  });
+
   it("reports modified adapter output through sync and project validation", () => {
     const parent = temporaryDirectory();
     const target = path.join(parent, "adapter-drift-project");

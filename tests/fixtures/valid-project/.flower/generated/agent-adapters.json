@@ -1,13 +1,13 @@
 {
   "$schema": "https://flower.dev/schemas/adapter-state/v1.json",
   "schemaVersion": 1,
-  "generatorVersion": "1.0.0",
+  "generatorVersion": "1.1.0",
   "artifacts": [
     {
       "adapter": "codex",
       "path": "AGENTS.md",
-      "inputDigest": "sha256:c86c58ce5f81a52abdac0bc84be6c7cdddde0a381382559ff077acb8a57c07ce",
-      "outputDigest": "sha256:52bb0dec4589b8de000102b4f2bfb4fc8a15e3b1270068156cff019674ab8291"
+      "inputDigest": "sha256:c591a0268e572b2fd42af9be98028368f60419bd2013690c8c18345032ce23aa",
+      "outputDigest": "sha256:e676e32750ab8bad4fadbfaa84244163d70b4e8096898a0524cc5240f885464e"
     }
   ]
 }

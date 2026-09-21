@@ -45,6 +45,7 @@ function ownership(): OwnershipManifest {
     version: 1,
     rules: [
       { pattern: ".flower/generated/**", owner: "generated", policy: "replace-if-unmodified" },
+      { pattern: ".github/workflows/flower-generated.yml", owner: "generated", policy: "replace-if-unmodified" },
       { pattern: "AGENTS.md", owner: "generated", policy: "replace-if-unmodified" },
       { pattern: "CLAUDE.md", owner: "generated", policy: "replace-if-unmodified" },
       { pattern: "docs/**", owner: "project", policy: "never-overwrite" },
@@ -74,6 +75,7 @@ async function stateSchema(): Promise<object> {
 
 async function writeBundle(root: string, bundle: AgentAdapterBundle): Promise<void> {
   for (const artifact of bundle.artifacts) {
+    await mkdir(path.dirname(path.join(root, artifact.path)), { recursive: true });
     await writeFile(path.join(root, artifact.path), artifact.content);
   }
   const statePath = path.join(root, bundle.statePath);
@@ -109,6 +111,46 @@ describe("F5 agent adapter generation", () => {
       valid: true,
       diagnostics: []
     });
+  });
+
+  it("generates a deterministic read-only CI projection from canonical checks", async () => {
+    const source = await input();
+    source.project.adapters = { githubActions: true };
+    const bundle = createAgentAdapterBundle(source);
+
+    expect(bundle.artifacts).toHaveLength(1);
+    const artifact = bundle.artifacts[0]!;
+    expect([artifact.adapter, artifact.path]).toEqual([
+      "github-actions",
+      ".github/workflows/flower-generated.yml"
+    ]);
+    expect(artifact.missingCapabilities).toEqual([]);
+    expect(artifact.content).toContain("Verification-only projection");
+    expect(artifact.content).toContain("permissions:\n  contents: read");
+    expect(artifact.content).toContain("actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683");
+    expect(artifact.content).toContain("actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020");
+    expect(artifact.content).toContain("run: npm test");
+    expect(artifact.content).toContain("run: npm run flower -- security check");
+    expect(artifact.content).not.toContain("agent.delegate");
+    expect(artifact.content).not.toContain("approval.require");
+    expect(validateDocument(await stateSchema(), bundle.state, "adapterState").valid).toBe(true);
+  });
+
+  it("blocks CI projection when a canonical check has no safe command mapping", async () => {
+    const root = await temporaryRoot();
+    const source = await input();
+    source.project.adapters = { githubActions: true };
+    source.workflows[0]!.steps.find(({ action }) => action === "checks.run")!.checks!.push("production-deploy");
+    const bundle = createAgentAdapterBundle(source);
+    await writeBundle(root, bundle);
+
+    expect(bundle.artifacts[0]!.missingCapabilities).toEqual(["check:production-deploy"]);
+    expect(bundle.artifacts[0]!.content).toContain("Blocking unsupported checks: check:production-deploy");
+    const result = await validateAgentAdapters(root, bundle, await stateSchema());
+    expect(result.diagnostics).toContainEqual(expect.objectContaining({
+      code: "adapter.capabilityMissing",
+      path: ".github/workflows/flower-generated.yml"
+    }));
   });
 
   it("validates current output and distinguishes modification from stale generation", async () => {

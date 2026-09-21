@@ -20,7 +20,7 @@ The kernel can generate, validate, plan, and transactionally materialize Codex a
 - Discovery rejects symbolic links, non-regular files, escapes from the real project root, and more than 256 Markdown files per discovered tree. Discovered prose is referenced by path; it is not parsed as workflow instructions.
 - Project-owned adapter notes use the stable optional path `docs/agent-notes.md`. Generation verifies that ownership classifies it as project-owned.
 - `--dry-run` returns the digest-protected materialization plan without writes. Normal execution applies the same plan through the kernel transaction and returns exit code 8 only when rollback is incomplete.
-- `flower validate <project>` adds adapter validation when Codex or Claude is enabled, or when prior generated adapter state exists. This reports missing, stale, modified, unsafe, invalid-state, and unsupported-capability diagnostics through the existing validation result.
+- `flower validate <project>` adds adapter validation when Codex, Claude, or GitHub Actions is enabled, or when prior generated adapter state exists. This reports missing, stale, modified, unsafe, invalid-state, and unsupported-capability diagnostics through the existing validation result.
 - The bundled workflow directory is part of the Flower CLI distribution contract. Tool-specific files remain generated views; the workflows remain the canonical executable data.
 
 ## Consequences
@@ -40,4 +40,4 @@ The kernel can generate, validate, plan, and transactionally materialize Codex a
 
 ## Review date
 
-Review when projects can select workflow sets, install third-party workflows, or generate a CI adapter.
+Review when projects can select workflow sets or install third-party workflows.
