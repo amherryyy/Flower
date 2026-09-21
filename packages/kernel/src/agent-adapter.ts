@@ -202,6 +202,7 @@ function renderAdapter(
 export function createAgentAdapterBundle(inputValue: AgentAdapterInput): AgentAdapterBundle {
   const input = normalizeInput(inputValue);
   assertProjectNotes(input);
+  assertGeneratedOutput(input, AGENT_ADAPTER_STATE_PATH);
   const enabled = PROFILES.filter((profile) => input.project.adapters?.[profile.id] === true);
   const artifacts = enabled.map((profile): AgentAdapterArtifact => {
     assertGeneratedOutput(input, profile.path);
