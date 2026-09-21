@@ -4,6 +4,7 @@ coverage/
 *.tsbuildinfo
 .flower/cache/
 .flower/journal/local/
+.flower/journal/workflows/
 sources/
 .env
 .env.*

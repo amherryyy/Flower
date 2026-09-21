@@ -17,6 +17,21 @@
       "policy": "never-commit"
     },
     {
+      "pattern": ".flower/journal/workflows/**",
+      "owner": "local",
+      "policy": "never-commit"
+    },
+    {
+      "pattern": "AGENTS.md",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "CLAUDE.md",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
       "pattern": ".flower/security.json",
       "owner": "protected",
       "policy": "migration-engine-only"

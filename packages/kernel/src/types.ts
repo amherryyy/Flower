@@ -514,3 +514,44 @@ export interface WorkflowRunOptions {
   approvals?: string[];
   ownership?: OwnershipManifest;
 }
+
+export type AgentAdapterId = "codex" | "claude";
+
+export interface AgentAdapterInput {
+  project: ProjectManifest;
+  ownership: OwnershipManifest;
+  workflows: WorkflowDefinition[];
+  architecturePolicyPaths: string[];
+  decisionPaths: string[];
+  notesPath: string;
+}
+
+export interface AgentAdapterArtifact {
+  adapter: AgentAdapterId;
+  path: string;
+  generatorVersion: string;
+  inputDigest: string;
+  outputDigest: string;
+  content: string;
+  missingCapabilities: string[];
+}
+
+export interface AgentAdapterState {
+  $schema?: string;
+  schemaVersion: 1;
+  generatorVersion: string;
+  artifacts: Array<{
+    adapter: AgentAdapterId;
+    path: string;
+    inputDigest: string;
+    outputDigest: string;
+  }>;
+}
+
+export interface AgentAdapterBundle {
+  artifacts: AgentAdapterArtifact[];
+  state: AgentAdapterState;
+  statePath: ".flower/generated/agent-adapters.json";
+  stateContent: string;
+  stateDigest: string;
+}
