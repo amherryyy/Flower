@@ -555,3 +555,33 @@ export interface AgentAdapterBundle {
   stateContent: string;
   stateDigest: string;
 }
+
+export interface AgentAdapterMaterializationAction {
+  kind: "create" | "replace" | "remove";
+  path: string;
+  beforeDigest?: string;
+  afterDigest?: string;
+}
+
+export interface AgentAdapterMaterializationPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "adapter-materialize";
+  state: "apply" | "unchanged";
+  projectRoot: string;
+  bundleDigest: string;
+  actions: AgentAdapterMaterializationAction[];
+}
+
+export interface AgentAdapterMaterializationResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  projectRoot: string;
+  changedPaths: string[];
+  journalPath?: string;
+}
+
+export interface AgentAdapterMaterializationHooks {
+  afterAction?: (action: Readonly<AgentAdapterMaterializationAction>, index: number) => Promise<void> | void;
+}

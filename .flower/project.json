@@ -77,7 +77,8 @@
     "typedWorkflowEngine": true,
     "durableWorkflowJournals": true,
     "agentAdapterGeneration": true,
-    "agentAdapterDriftValidation": true
+    "agentAdapterDriftValidation": true,
+    "transactionalAgentAdapterMaterialization": true
   },
   "quality": {
     "minimumCoverage": 80,
