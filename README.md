@@ -2,7 +2,7 @@
 
 Flower is an independently owned framework for creating, validating, and safely upgrading structured software projects.
 
-This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Phase F2 initialization slice, Phase F3 module engine, Phase F4 database and security controls, and the first Phase F5 workflow-engine slice:
+This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Phase F2 initialization slice, Phase F3 module engine, Phase F4 database and security controls, and the completed Phase F5 workflow and adapter system:
 
 - `@flower/kernel` for manifest and ownership validation;
 - version-aware project manifest loading and forward-only migrations;
@@ -36,6 +36,7 @@ This repository contains the Phase F0 foundation, Phase F1 diagnostic kernel, Ph
 - append-only audit events with a validated service-role insertion function and recursive sensitive-field rejection;
 - a versioned typed workflow schema with deterministic plans, engine-owned approvals, declared-effect enforcement, and durable resumable journal state;
 - deterministic Codex and Claude adapter views with capability reporting, checksummed state, drift validation, and transactional materialization;
+- a constrained GitHub Actions verification adapter generated from canonical workflow checks;
 - the `flower` command-line interface;
 - versioned JSON Schemas;
 - valid and invalid fixture projects;
@@ -123,4 +124,4 @@ Phase F5 workflow definitions are strict data rather than prompt files. Planning
 
 ## Current boundary
 
-Phase F2 initializes a thin application shell. Phase F3 validates module manifests and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, append-only sensitive-field-safe audit insertion, a deterministic offline security gate, durable rate limits and quotas with bounded retention, fail-closed upload inspection orchestration, a narrow service-role boundary, redaction-safe structured logging, lockfile integrity and license policy checks, immutable CI actions, a live CI dependency-audit threshold, and hosted PostgreSQL certification. Phase F5 now has its typed workflow, plan, approval, declared-effect, ownership, durable local journal, resumability, deterministic Codex/Claude generation, constrained GitHub Actions verification projection, adapter drift validation, transactional adapter materialization, and CLI synchronization contracts. An explicit F5 exit-criteria audit is next. Hosted Supabase proof, audit retention and cryptographic tamper evidence, concrete malware/sanitizer providers, data-flow-aware logging lint rules, richer online advisory enrichment, adoption, and framework updates remain later slices.
+Phase F2 initializes a thin application shell. Phase F3 validates module manifests and transactionally adds, removes, or ejects generated integrations. Phase F4 now has a verified migration registry, versioned descriptors, deterministic planning, transactional PostgreSQL execution and verification, a node-postgres pool adapter, an RLS inspector, explicit read policies, actor/tenant scenarios, narrow authorization workflows, final-owner enforcement, append-only sensitive-field-safe audit insertion, a deterministic offline security gate, durable rate limits and quotas with bounded retention, fail-closed upload inspection orchestration, a narrow service-role boundary, redaction-safe structured logging, lockfile integrity and license policy checks, immutable CI actions, a live CI dependency-audit threshold, and hosted PostgreSQL certification. Phase F5 is complete: typed workflows, engine-owned approval, declared-effect and ownership enforcement, durable resumable journals, deterministic Codex and Claude generation, a constrained GitHub Actions verification projection, adapter drift validation, transactional materialization, and CLI synchronization satisfy the [F5 exit audit](docs/audits/phase-f5-exit.md). Phase F6 updates are next. Hosted Supabase proof, audit retention and cryptographic tamper evidence, concrete malware/sanitizer providers, data-flow-aware logging lint rules, richer online advisory enrichment, and project adoption remain later slices.

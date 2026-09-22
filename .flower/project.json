@@ -81,7 +81,8 @@
     "transactionalAgentAdapterMaterialization": true,
     "agentAdapterCliSync": true,
     "agentAdapterProjectValidation": true,
-    "githubActionsAdapterGeneration": true
+    "githubActionsAdapterGeneration": true,
+    "phaseF5ExitCriteriaVerified": true
   },
   "quality": {
     "minimumCoverage": 80,
