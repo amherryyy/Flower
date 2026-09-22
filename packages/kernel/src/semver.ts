@@ -44,6 +44,14 @@ function compare(left: SemanticVersion, right: SemanticVersion): number {
   return 0;
 }
 
+export function compareSemVer(left: string, right: string): number {
+  return compare(parseVersion(left), parseVersion(right));
+}
+
+export function isPrereleaseSemVer(version: string): boolean {
+  return parseVersion(version).prerelease.length > 0;
+}
+
 function upperBound(base: SemanticVersion, operator: "^" | "~"): SemanticVersion {
   if (operator === "~") return { major: base.major, minor: base.minor + 1, patch: 0, prerelease: [] };
   if (base.major > 0) return { major: base.major + 1, minor: 0, patch: 0, prerelease: [] };
