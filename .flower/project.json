@@ -82,7 +82,8 @@
     "agentAdapterCliSync": true,
     "agentAdapterProjectValidation": true,
     "githubActionsAdapterGeneration": true,
-    "phaseF5ExitCriteriaVerified": true
+    "phaseF5ExitCriteriaVerified": true,
+    "frameworkVersionResolver": true
   },
   "quality": {
     "minimumCoverage": 80,

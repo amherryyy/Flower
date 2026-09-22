@@ -27,3 +27,4 @@ export * from "./workflow.js";
 export * from "./workflow-journal.js";
 export * from "./agent-adapter.js";
 export * from "./agent-adapter-materialization.js";
+export * from "./update-version.js";

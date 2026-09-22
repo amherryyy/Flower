@@ -278,6 +278,47 @@ export interface ModuleResolutionPlan {
   diagnostics: Diagnostic[];
 }
 
+export type FlowerReleaseChannel = "stable" | "preview" | "development";
+
+export interface FlowerRelease {
+  version: string;
+  channel: FlowerReleaseChannel;
+}
+
+export interface VersionModuleCompatibility {
+  moduleId: string;
+  moduleVersion: string;
+  compatibleFlower?: string;
+  compatible: boolean;
+  reason?: "package-not-found" | "flower-version-unsupported";
+}
+
+export interface VersionCandidateEvaluation {
+  version: string;
+  channel: FlowerReleaseChannel;
+  compatible: boolean;
+  modules: VersionModuleCompatibility[];
+}
+
+export interface VersionResolutionInput {
+  currentVersion: string;
+  channel: FlowerReleaseChannel;
+  releases: readonly FlowerRelease[];
+  installedModules?: Readonly<Record<string, string>>;
+  moduleCatalog?: readonly ModuleManifest[];
+  requestedVersion?: string;
+}
+
+export interface VersionResolution {
+  valid: boolean;
+  state: "update" | "unchanged" | "blocked";
+  currentVersion: string;
+  targetVersion?: string;
+  channel: FlowerReleaseChannel;
+  candidates: VersionCandidateEvaluation[];
+  diagnostics: Diagnostic[];
+}
+
 export interface VerifiedModuleArtifact {
   path: string;
   sourcePath: string;
