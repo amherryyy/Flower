@@ -6,6 +6,7 @@ import type {
   UpdateDependencyChange,
   UpdateGeneratedFileChange,
   UpdateManifestMigration,
+  UpdateModuleMigration,
   UpdateOwnershipConflict,
   UpdatePlan,
   UpdatePlanInput,
@@ -88,6 +89,19 @@ function normalizeManifestMigrations(input: readonly UpdateManifestMigration[]):
     }
     return { ...migration };
   }).sort((left, right) => left.manifest.localeCompare(right.manifest) || left.fromVersion - right.fromVersion || left.id.localeCompare(right.id));
+}
+
+function normalizeModuleMigrations(input: readonly UpdateModuleMigration[]): UpdateModuleMigration[] {
+  assertUnique(input, ({ moduleId, fromVersion }) => `${moduleId}@${fromVersion}`, "Module migrations");
+  return input.map((migration) => {
+    if (!migration.id.trim() || !migration.moduleId.trim() || !isValidSemVer(migration.fromVersion) ||
+      !isValidSemVer(migration.toVersion) || compareSemVer(migration.toVersion, migration.fromVersion) <= 0) {
+      throw new UpdatePlanError(`Module migration '${migration.id}' has an invalid version transition`, "update.invalidModuleMigration");
+    }
+    assertDigest(migration.digest, `${migration.moduleId} migration digest`);
+    return { ...migration };
+  }).sort((left, right) => left.moduleId.localeCompare(right.moduleId) ||
+    compareSemVer(left.fromVersion, right.fromVersion) || left.id.localeCompare(right.id));
 }
 
 function normalizeGeneratedFiles(input: readonly UpdateGeneratedFileChange[]): UpdateGeneratedFileChange[] {
@@ -177,6 +191,7 @@ export function createUpdatePlan(input: UpdatePlanInput): UpdatePlan {
 
   const dependencyChanges = normalizeDependencies(input.dependencyChanges ?? []);
   const manifestMigrations = normalizeManifestMigrations(input.manifestMigrations ?? []);
+  const moduleMigrations = normalizeModuleMigrations(input.moduleMigrations ?? []);
   const generatedFiles = normalizeGeneratedFiles(input.generatedFiles ?? []);
   const databaseMigrations = normalizeDatabaseMigrations(input.databaseMigrations ?? []);
   const ownershipConflicts = normalizeConflicts(input.ownershipConflicts ?? []);
@@ -192,7 +207,7 @@ export function createUpdatePlan(input: UpdatePlanInput): UpdatePlan {
   const rollbackLimitations = normalizeRequirements(input.rollbackLimitations ?? [], "Rollback limitations");
   const moduleCompatibility = normalizeCompatibility(selected?.modules ?? []);
 
-  const hasActions = dependencyChanges.length + manifestMigrations.length + generatedFiles.length + databaseMigrations.length > 0 ||
+  const hasActions = dependencyChanges.length + manifestMigrations.length + moduleMigrations.length + generatedFiles.length + databaseMigrations.length > 0 ||
     resolution.targetVersion !== resolution.currentVersion;
   const payload: Omit<UpdatePlan, "planId" | "digest"> = {
     schemaVersion: 1,
@@ -204,6 +219,7 @@ export function createUpdatePlan(input: UpdatePlanInput): UpdatePlan {
     moduleCompatibility,
     dependencyChanges,
     manifestMigrations,
+    moduleMigrations,
     generatedFiles,
     databaseMigrations,
     ownershipConflicts,

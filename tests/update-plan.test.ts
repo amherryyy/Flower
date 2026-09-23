@@ -53,6 +53,15 @@ function updateInput(): UpdatePlanInput {
     manifestMigrations: [
       { id: "project-v1-v2", manifest: "project", fromVersion: 1, toVersion: 2 }
     ],
+    moduleMigrations: [
+      {
+        id: "auth-1.0.0-1.1.0",
+        moduleId: "auth",
+        fromVersion: "1.0.0",
+        toVersion: "1.1.0",
+        digest: digest("auth config migration")
+      }
+    ],
     generatedFiles: [
       {
         path: "src/flower/modules.ts",
@@ -110,6 +119,9 @@ describe("F6 update planning", () => {
       expect.objectContaining({ moduleId: "auth", moduleVersion: "1.0.0", compatible: true })
     ]);
     expect(first.dependencyChanges.map(({ name }) => name)).toEqual(["@flower/config", "@flower/kernel"]);
+    expect(first.moduleMigrations).toEqual([
+      expect.objectContaining({ moduleId: "auth", fromVersion: "1.0.0", toVersion: "1.1.0" })
+    ]);
     expect(first.requiredApprovals).toContainEqual({
       id: "database:auth-002",
       description: "Review-required database migration 'auth-002'"

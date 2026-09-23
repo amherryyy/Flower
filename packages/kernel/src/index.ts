@@ -30,3 +30,4 @@ export * from "./agent-adapter-materialization.js";
 export * from "./update-version.js";
 export * from "./update-plan.js";
 export * from "./generated-text-merge.js";
+export * from "./metadata-migration.js";
