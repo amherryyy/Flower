@@ -85,7 +85,8 @@
     "phaseF5ExitCriteriaVerified": true,
     "frameworkVersionResolver": true,
     "deterministicUpdatePlanning": true,
-    "generatedTextThreeWayMerge": true
+    "generatedTextThreeWayMerge": true,
+    "versionedMetadataMigrations": true
   },
   "quality": {
     "minimumCoverage": 80,

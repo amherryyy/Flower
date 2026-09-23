@@ -153,6 +153,72 @@ export interface ManifestMigrationResult {
   steps: ManifestMigrationStep[];
 }
 
+export type ManifestDocumentKind = "project" | "lock" | "ownership" | "module";
+
+export interface VersionedManifestMigrationDefinition {
+  id: string;
+  manifest: ManifestDocumentKind;
+  fromVersion: number;
+  toVersion: number;
+  digest: string;
+  migrate(document: Record<string, unknown>): Record<string, unknown>;
+}
+
+export interface VersionedManifestMigrationPlanStep {
+  id: string;
+  fromVersion: number;
+  toVersion: number;
+  digest: string;
+}
+
+export interface VersionedManifestMigrationPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "manifest-migrate";
+  state: "apply" | "unchanged";
+  manifest: ManifestDocumentKind;
+  fromVersion: number;
+  toVersion: number;
+  sourceDigest: string;
+  steps: VersionedManifestMigrationPlanStep[];
+}
+
+export interface ModuleUpdateMigrationDefinition {
+  id: string;
+  moduleId: string;
+  fromVersion: string;
+  toVersion: string;
+  digest: string;
+  migrate(document: Record<string, unknown>): Record<string, unknown>;
+}
+
+export interface ModuleUpdateMigrationPlanStep {
+  id: string;
+  fromVersion: string;
+  toVersion: string;
+  digest: string;
+}
+
+export interface ModuleUpdateMigrationPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "module-update-migrate";
+  state: "apply" | "unchanged";
+  moduleId: string;
+  fromVersion: string;
+  toVersion: string;
+  sourceDigest: string;
+  steps: ModuleUpdateMigrationPlanStep[];
+}
+
+export interface MetadataMigrationApplicationResult {
+  changed: boolean;
+  document: Record<string, unknown>;
+  applied: string[];
+}
+
 export interface JournalEntry {
   id: string;
   timestamp: string;
@@ -333,6 +399,14 @@ export interface UpdateManifestMigration {
   toVersion: number;
 }
 
+export interface UpdateModuleMigration {
+  id: string;
+  moduleId: string;
+  fromVersion: string;
+  toVersion: string;
+  digest: string;
+}
+
 export interface UpdateGeneratedFileChange {
   path: string;
   kind: "create" | "replace" | "merge" | "remove";
@@ -404,6 +478,7 @@ export interface UpdatePlanInput {
   preconditions: UpdatePlanPreconditions;
   dependencyChanges?: readonly UpdateDependencyChange[];
   manifestMigrations?: readonly UpdateManifestMigration[];
+  moduleMigrations?: readonly UpdateModuleMigration[];
   generatedFiles?: readonly UpdateGeneratedFileChange[];
   databaseMigrations?: readonly UpdateDatabaseMigration[];
   ownershipConflicts?: readonly UpdateOwnershipConflict[];
@@ -424,6 +499,7 @@ export interface UpdatePlan {
   moduleCompatibility: VersionModuleCompatibility[];
   dependencyChanges: UpdateDependencyChange[];
   manifestMigrations: UpdateManifestMigration[];
+  moduleMigrations: UpdateModuleMigration[];
   generatedFiles: UpdateGeneratedFileChange[];
   databaseMigrations: UpdateDatabaseMigration[];
   ownershipConflicts: UpdateOwnershipConflict[];
