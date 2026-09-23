@@ -1049,6 +1049,70 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 
 **Exit criteria:** a 0.1-to-0.2 fixture updates reproducibly, detects conflicts, and preserves project-owned code.
 
+### Phase F7 — Adoption and transactional update application
+
+- Read-only inspection of an existing project's stack, package manager, database paths, CI, agent instructions, and Git state.
+- Deterministic adoption plans that classify every pre-existing path as project-owned by default.
+- Dry-run, JSON, approval, journal, rollback, recovery, and idempotency behavior for `flower adopt`.
+- User-facing `flower update --plan` and `flower update --apply <plan-id>` orchestration over the verified F6 resolver, plan, merge, and migration contracts.
+- Reviewed merges for existing CI and agent instructions; unresolved overlaps remain blocking conflicts.
+
+**Non-goals:** rewriting arbitrary project code, silently replacing existing CI or agent instructions, pushing remotes, deploying environments, or applying production database changes without a separate explicit approval boundary.
+
+**Exit criteria:** representative existing projects can be adopted reproducibly without changing pre-existing project-owned bytes by default, and a planned 0.1-to-0.2 update applies transactionally, rejects stale state, recovers from injected failures, and produces the same verified result on every supported platform.
+
+### Phase F8 — Packaging, releases, and developer experience
+
+- Final public package names and supported installation paths for the CLI and reusable runtime packages.
+- Versioned release automation, immutable artifacts, provenance, checksums, changelogs, release notes, and compatibility documentation.
+- Clean-machine `npx` or equivalent local invocation without cloning the Flower source repository.
+- Actionable interactive and JSON diagnostics, quick-start documentation, and upgrade guidance.
+- Installation and initialization smoke tests on Windows, macOS, and Linux.
+
+**Non-goals:** a hosted control plane, a third-party marketplace, automatic production deployment, or compatibility claims for untested runtimes and package managers.
+
+**Exit criteria:** a published prerelease installs on clean supported systems and can initialize, validate, add a module to, and update a fixture project using only documented commands; the produced packages and release metadata are traceable to one reviewed source revision.
+
+### Phase F9 — Deployment and hosted Supabase integration
+
+- Explicit local, preview, staging, and production environment contracts with secret-name and configuration validation.
+- Hosted Supabase/PostgreSQL certification for migrations, verification queries, RLS behavior, and recovery guidance.
+- Approval-gated deployment planning and an initial web-host adapter, with immutable inputs and visible diffs.
+- Migration promotion, backup-readiness checks, post-deployment verification, and documented rollback limitations.
+- A real external pilot application exercising the released Flower packages and hosted integration.
+
+**Non-goals:** autonomous deployment, hidden production mutation, storing user secrets in Flower, broad multi-cloud coverage, or claiming provider portability without conformance evidence.
+
+**Exit criteria:** the pilot can move through preview and a production-like environment from reviewed plans; hosted database isolation and migration checks pass; failed deployment and migration scenarios stop safely with actionable recovery evidence.
+
+### Phase F10 — Production security and operations
+
+- Concrete pluggable malware-scanning and file-sanitization providers with fail-closed conformance tests.
+- Audit retention and cryptographic tamper-evidence options with documented trust and key boundaries.
+- Data-flow-aware sensitive-logging checks and online vulnerability/advisory enrichment that clearly distinguishes unavailable data.
+- Secret-rotation guidance, operational health checks, monitoring integration points, and bounded maintenance workflows.
+- Threat-driven incident, backup, restore, and disaster-recovery exercises.
+
+**Non-goals:** guaranteeing that an application is vulnerability-free, operating a security operations center, silently collecting telemetry, or taking incident actions without operator approval.
+
+**Exit criteria:** production-hardening providers pass contract and failure-injection suites, sensitive-data and audit-integrity scenarios fail closed, and a documented recovery exercise restores a representative deployment within its declared recovery objectives.
+
+### Phase F11 — Module and adapter ecosystem
+
+- Public authoring contracts and test kits for modules, templates, agent adapters, database adapters, and deployment adapters.
+- Signed catalog metadata, explicit trust policy, compatibility ranges, deprecation rules, and conformance certification.
+- Deterministic third-party install, update, remove, eject, and conflict behavior using the same ownership and planning boundaries as official packages.
+- Reference external packages built only against public Flower contracts.
+- Additional adapters added only from demonstrated project demand.
+
+**Non-goals:** executing untrusted packages without review, a mandatory hosted marketplace, accepting unsigned catalogs by default, or preserving compatibility with packages that violate declared contracts.
+
+**Exit criteria:** an independently maintained reference module and adapter pass the published conformance suite, install from a verified catalog, update reproducibly, and can be removed or ejected without corrupting a golden project.
+
+### Post-F6 sequencing rule
+
+F7 through F11 are approved extensions to the original MVP roadmap. They are sequential framework phases, although an external pilot application may develop in parallel as a consumer. Pilot needs do not automatically become Flower features: a framework change requires a reusable contract, an architecture decision, and tests independent of the pilot repository. Each phase ends with an exit audit before the next phase is declared complete.
+
 ## 30. First development decisions
 
 The following are provisional defaults for Flower 0.1:
