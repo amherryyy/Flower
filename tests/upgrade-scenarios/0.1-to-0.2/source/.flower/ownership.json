@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "pattern": "src/flower/**",
+      "owner": "generated",
+      "policy": "replace-if-unmodified"
+    },
+    {
+      "pattern": "**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "currentFlowerVersion": "0.1.0",
+  "targetFlowerVersion": "0.2.0",
+  "moduleId": "auth",
+  "currentModuleVersion": "1.0.0",
+  "targetModuleVersion": "2.0.0",
+  "generatedPath": "src/flower/runtime.ts",
+  "projectOwnedPath": "src/domain/account.ts"
+}
