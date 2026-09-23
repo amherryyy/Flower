@@ -1,0 +1,7 @@
+{
+  "lockVersion": 1,
+  "flowerVersion": "0.1.0",
+  "modules": {
+    "auth": "1.0.0"
+  }
+}

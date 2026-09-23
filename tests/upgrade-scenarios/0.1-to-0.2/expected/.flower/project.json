@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 2,
+  "project": {
+    "id": "upgrade-fixture",
+    "name": "Upgrade Fixture"
+  },
+  "flower": {
+    "version": "0.2.0",
+    "channel": "stable"
+  },
+  "modules": {
+    "auth": "2.0.0"
+  },
+  "updatePolicy": "review"
+}
