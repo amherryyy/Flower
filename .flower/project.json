@@ -86,7 +86,8 @@
     "frameworkVersionResolver": true,
     "deterministicUpdatePlanning": true,
     "generatedTextThreeWayMerge": true,
-    "versionedMetadataMigrations": true
+    "versionedMetadataMigrations": true,
+    "phaseF6ExitCriteriaVerified": true
   },
   "quality": {
     "minimumCoverage": 80,
