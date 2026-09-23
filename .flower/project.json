@@ -83,7 +83,8 @@
     "agentAdapterProjectValidation": true,
     "githubActionsAdapterGeneration": true,
     "phaseF5ExitCriteriaVerified": true,
-    "frameworkVersionResolver": true
+    "frameworkVersionResolver": true,
+    "deterministicUpdatePlanning": true
   },
   "quality": {
     "minimumCoverage": 80,

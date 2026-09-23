@@ -319,6 +319,94 @@ export interface VersionResolution {
   diagnostics: Diagnostic[];
 }
 
+export interface UpdateDependencyChange {
+  name: string;
+  kind: "add" | "update" | "remove";
+  fromVersion?: string;
+  toVersion?: string;
+}
+
+export interface UpdateManifestMigration {
+  id: string;
+  manifest: "project" | "lock" | "ownership";
+  fromVersion: number;
+  toVersion: number;
+}
+
+export interface UpdateGeneratedFileChange {
+  path: string;
+  kind: "create" | "replace" | "merge" | "remove";
+  baseDigest?: string;
+  currentDigest?: string;
+  targetDigest?: string;
+}
+
+export interface UpdateDatabaseMigration {
+  id: string;
+  moduleId: string;
+  moduleVersion: string;
+  digest: string;
+  destructive: "none" | "review" | "destructive";
+}
+
+export interface UpdateOwnershipConflict {
+  path: string;
+  owner: OwnershipKind;
+  policy: OwnershipPolicy;
+  reason: string;
+}
+
+export interface UpdateRequirement {
+  id: string;
+  description: string;
+}
+
+export interface UpdateVerificationCommand {
+  id: string;
+  command: string;
+}
+
+export interface UpdatePlanPreconditions {
+  projectManifestDigest: string;
+  lockDigest: string;
+  ownershipDigest: string;
+  generatedStateDigest?: string;
+}
+
+export interface UpdatePlanInput {
+  resolution: VersionResolution;
+  preconditions: UpdatePlanPreconditions;
+  dependencyChanges?: readonly UpdateDependencyChange[];
+  manifestMigrations?: readonly UpdateManifestMigration[];
+  generatedFiles?: readonly UpdateGeneratedFileChange[];
+  databaseMigrations?: readonly UpdateDatabaseMigration[];
+  ownershipConflicts?: readonly UpdateOwnershipConflict[];
+  requiredApprovals?: readonly UpdateRequirement[];
+  verificationCommands?: readonly UpdateVerificationCommand[];
+  rollbackLimitations?: readonly UpdateRequirement[];
+}
+
+export interface UpdatePlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "update";
+  state: "apply" | "unchanged" | "blocked";
+  currentVersion: string;
+  targetVersion: string;
+  channel: FlowerReleaseChannel;
+  moduleCompatibility: VersionModuleCompatibility[];
+  dependencyChanges: UpdateDependencyChange[];
+  manifestMigrations: UpdateManifestMigration[];
+  generatedFiles: UpdateGeneratedFileChange[];
+  databaseMigrations: UpdateDatabaseMigration[];
+  ownershipConflicts: UpdateOwnershipConflict[];
+  requiredApprovals: UpdateRequirement[];
+  verificationCommands: UpdateVerificationCommand[];
+  rollbackLimitations: UpdateRequirement[];
+  preconditions: UpdatePlanPreconditions;
+}
+
 export interface VerifiedModuleArtifact {
   path: string;
   sourcePath: string;
