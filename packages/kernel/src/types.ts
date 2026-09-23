@@ -341,6 +341,32 @@ export interface UpdateGeneratedFileChange {
   targetDigest?: string;
 }
 
+export type GeneratedTextMergeStatus =
+  | "unchanged"
+  | "replace"
+  | "preserve"
+  | "converged"
+  | "merge"
+  | "conflict";
+
+export interface GeneratedTextMergeConflict {
+  baseStart: number;
+  baseEnd: number;
+  base: string;
+  current: string;
+  target: string;
+}
+
+export interface GeneratedTextMergeResult {
+  status: GeneratedTextMergeStatus;
+  baseDigest: string;
+  currentDigest: string;
+  targetDigest: string;
+  outputDigest?: string;
+  content?: string;
+  conflicts: GeneratedTextMergeConflict[];
+}
+
 export interface UpdateDatabaseMigration {
   id: string;
   moduleId: string;

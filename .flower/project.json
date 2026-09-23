@@ -84,7 +84,8 @@
     "githubActionsAdapterGeneration": true,
     "phaseF5ExitCriteriaVerified": true,
     "frameworkVersionResolver": true,
-    "deterministicUpdatePlanning": true
+    "deterministicUpdatePlanning": true,
+    "generatedTextThreeWayMerge": true
   },
   "quality": {
     "minimumCoverage": 80,
