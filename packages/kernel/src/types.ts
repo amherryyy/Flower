@@ -55,6 +55,50 @@ export interface AdoptionInspectionResult {
   diagnostics: Diagnostic[];
 }
 
+export interface AdoptionPlanOptions {
+  projectId: string;
+  projectName: string;
+  flowerVersion: string;
+  modules?: readonly string[];
+  adapters?: readonly ("codex" | "claude" | "github-actions")[];
+}
+
+export interface AdoptionPathClassification {
+  path: string;
+  owner: "project";
+  policy: "never-overwrite";
+  digest: string;
+  bytes: number;
+}
+
+export interface AdoptionPlanConflict {
+  path: string;
+  reason: "existing-agent-instructions" | "existing-ci-workflow" | "symbolic-link";
+  message: string;
+}
+
+export interface AdoptionPlan {
+  schemaVersion: 1;
+  planId: string;
+  digest: string;
+  command: "adopt";
+  state: "apply" | "blocked";
+  projectRoot: string;
+  project: { id: string; name: string };
+  flowerVersion: string;
+  packageManager: AdoptionPackageManager;
+  modules: string[];
+  adapters: ("codex" | "claude" | "github-actions")[];
+  classifications: AdoptionPathClassification[];
+  excludedLocalRoots: string[];
+  metadata: Array<{ path: string; digest: string }>;
+  conflicts: AdoptionPlanConflict[];
+  preconditions: {
+    inspectionDigest: string;
+    projectStateDigest: string;
+  };
+}
+
 export interface SecurityBaseline {
   $schema?: string;
   schemaVersion: 1;

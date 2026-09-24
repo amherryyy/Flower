@@ -114,6 +114,84 @@ describe("flower CLI", () => {
     expect(() => readFileSync(path.join(target, ".flower", "project.json"))).toThrow();
   });
 
+  it("dry-runs a deterministic adoption plan without writing Flower metadata", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), `${JSON.stringify({
+      name: "existing-app",
+      packageManager: "npm@11",
+      dependencies: { next: "15.0.0" }
+    })}\n`);
+    writeFileSync(path.join(target, "package-lock.json"), "{}\n");
+    writeFileSync(path.join(target, "tsconfig.json"), "{}\n");
+
+    const result = run(
+      "adopt",
+      target,
+      "--dry-run",
+      "--id",
+      "existing-app",
+      "--name",
+      "Existing App",
+      "--modules",
+      "rbac,auth",
+      "--adapters",
+      "codex",
+      "--json"
+    );
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      state: string;
+      project: { id: string; name: string };
+      modules: string[];
+      adapters: string[];
+      classifications: Array<{ path: string; owner: string; policy: string }>;
+    };
+    expect(output).toMatchObject({
+      command: "adopt",
+      state: "apply",
+      project: { id: "existing-app", name: "Existing App" },
+      modules: ["auth", "rbac"],
+      adapters: ["codex"]
+    });
+    expect(output.classifications).toContainEqual(expect.objectContaining({
+      path: "package.json",
+      owner: "project",
+      policy: "never-overwrite"
+    }));
+    expect(() => readFileSync(path.join(target, ".flower", "project.json"))).toThrow();
+  });
+
+  it("returns a blocked dry-run when a requested adapter overlaps existing project files", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));
+    writeFileSync(path.join(target, "package-lock.json"), "{}");
+    writeFileSync(path.join(target, "AGENTS.md"), "Existing project instructions\n");
+
+    const result = run("adopt", target, "--dry-run", "--adapters", "codex", "--json");
+    expect(result.status).toBe(1);
+    const output = JSON.parse(result.stdout) as { state: string; conflicts: Array<{ path: string; reason: string }> };
+    expect(output.state).toBe("blocked");
+    expect(output.conflicts).toContainEqual(expect.objectContaining({
+      path: "AGENTS.md",
+      reason: "existing-agent-instructions"
+    }));
+    expect(() => readFileSync(path.join(target, ".flower", "project.json"))).toThrow();
+  });
+
+  it("rejects an unknown adoption adapter", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));
+    writeFileSync(path.join(target, "package-lock.json"), "{}");
+
+    const result = run("adopt", target, "--dry-run", "--adapters", "unknown", "--json");
+    expect(result.status).toBe(1);
+    expect(JSON.parse(result.stdout)).toEqual(expect.objectContaining({
+      state: "blocked",
+      code: "adopt.invalidAdapter"
+    }));
+  });
+
   it("returns a failure code for blocked adoption inspection", () => {
     const target = temporaryDirectory();
     writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));
