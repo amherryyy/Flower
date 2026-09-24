@@ -87,6 +87,46 @@ describe("flower CLI", () => {
     expect(output.ownershipRules).toBeGreaterThan(0);
   });
 
+  it("inspects an existing project for adoption without writing Flower metadata", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), `${JSON.stringify({
+      name: "existing-app",
+      packageManager: "npm@11",
+      dependencies: { next: "15.0.0", "@supabase/supabase-js": "2.0.0" }
+    })}\n`);
+    writeFileSync(path.join(target, "package-lock.json"), "{}\n");
+    writeFileSync(path.join(target, "tsconfig.json"), "{}\n");
+
+    const result = run("adopt", target, "--json");
+    expect(result.status).toBe(0);
+    const output = JSON.parse(result.stdout) as {
+      command: string;
+      state: string;
+      packageManager: { selected?: string };
+      stack: { web: string[]; databases: string[] };
+    };
+    expect(output).toMatchObject({
+      command: "adopt-inspect",
+      state: "ready",
+      packageManager: { selected: "npm" },
+      stack: { web: ["nextjs"], databases: ["supabase-postgres"] }
+    });
+    expect(() => readFileSync(path.join(target, ".flower", "project.json"))).toThrow();
+  });
+
+  it("returns a failure code for blocked adoption inspection", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));
+    writeFileSync(path.join(target, "package-lock.json"), "{}");
+    writeFileSync(path.join(target, "pnpm-lock.yaml"), "");
+
+    const result = run("adopt", target, "--json");
+    expect(result.status).toBe(1);
+    const output = JSON.parse(result.stdout) as { state: string; diagnostics: Array<{ code: string }> };
+    expect(output.state).toBe("blocked");
+    expect(output.diagnostics).toContainEqual(expect.objectContaining({ code: "adopt.ambiguousPackageManager" }));
+  });
+
   it("validates the bundled template manifest with the template schema", () => {
     const result = run("validate", "templates/next-supabase/flower.template.json");
     expect(result.status).toBe(0);

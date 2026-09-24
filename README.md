@@ -67,6 +67,7 @@ npm run flower -- validate tests/fixtures/valid-project
 npm run flower -- validate tests/fixtures/invalid-project --json
 npm run flower -- init ../sample-app --name "Sample App" --dry-run
 npm run flower -- init ../sample-app --name "Sample App"
+npm run flower -- adopt ../existing-app --json
 npm run flower -- add rbac --project ../sample-app --dry-run
 npm run flower -- add rbac --project ../sample-app
 npm run flower -- remove rbac --project ../sample-app --dry-run
@@ -74,6 +75,8 @@ npm run flower -- eject audit --project ../sample-app --dry-run
 ```
 
 All commands support `--json` for deterministic automation output. Flower does not require network access or an external service to inspect, validate, or dry-run a project. Initialization installs dependencies and runs the template's tests, type-check, lint, and build by default. Use `--skip-install` only when materializing an offline project for later installation.
+
+`flower adopt <existing-project>` is read-only in the first F7 slice. It detects conventional JavaScript/TypeScript and web-stack evidence, npm/pnpm/Yarn/Bun declarations and lockfiles, Supabase/PostgreSQL/Prisma paths, CI workflows, agent instructions, and Git worktree state without creating `.flower` metadata. Conflicting package managers or web frameworks, existing control state, unsafe links, and malformed package metadata block later planning; missing or dirty evidence is reported explicitly. Adoption planning and application remain later F7 slices.
 
 `flower adapters sync` validates the project and ownership manifests, loads Flower's bundled typed workflows, discovers conventional project context, architecture, and decision Markdown without following symbolic links, and builds one deterministic Codex/Claude bundle. `--dry-run` prints the digest-protected create/replace/remove plan without writes. Application uses the transactional materializer, and `flower validate` reports missing, stale, modified, unsafe, or unsupported enabled adapters. Project-specific notes remain optional and project-owned at `docs/agent-notes.md`.
 

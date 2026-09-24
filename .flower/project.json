@@ -87,7 +87,8 @@
     "deterministicUpdatePlanning": true,
     "generatedTextThreeWayMerge": true,
     "versionedMetadataMigrations": true,
-    "phaseF6ExitCriteriaVerified": true
+    "phaseF6ExitCriteriaVerified": true,
+    "adoptionInspection": true
   },
   "quality": {
     "minimumCoverage": 80,

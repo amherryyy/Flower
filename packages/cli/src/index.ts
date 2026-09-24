@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FLOWER_VERSION,
+  AdoptionInspectionError,
   AgentAdapterMaterializationError,
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
@@ -20,6 +21,7 @@ import {
   createModuleAddPlan,
   createModuleDispositionPlan,
   createAgentAdapterMaterializationPlan,
+  inspectAdoptionProject,
   loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
@@ -28,6 +30,7 @@ import {
   validateModuleManifest,
   validateOwnershipManifest,
   type Diagnostic,
+  type AdoptionInspectionResult,
   type OwnershipManifest,
   type ProjectManifest,
   type SecurityCheckResult,
@@ -401,6 +404,27 @@ function printSecurity(result: SecurityCheckResult, json: boolean): void {
   process.stdout.write("Live vulnerability database: not configured (offline baseline only).\n");
 }
 
+function printAdoptionInspection(result: AdoptionInspectionResult, json: boolean): void {
+  if (json) {
+    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    return;
+  }
+  process.stdout.write(
+    result.state === "ready"
+      ? `Adoption inspection is ready for ${result.projectRoot}.\n`
+      : `Adoption inspection is blocked for ${result.projectRoot}.\n`
+  );
+  process.stdout.write(`Languages: ${result.stack.languages.length ? result.stack.languages.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Runtime: ${result.stack.runtimes.length ? result.stack.runtimes.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Web: ${result.stack.web.length ? result.stack.web.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Database: ${result.stack.databases.length ? result.stack.databases.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Package manager: ${result.packageManager.selected ?? result.packageManager.state}\n`);
+  process.stdout.write(`CI: ${result.ci.providers.length ? result.ci.providers.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Agent instructions: ${result.agentInstructions.length ? result.agentInstructions.join(", ") : "none detected"}\n`);
+  process.stdout.write(`Git: ${result.git.present ? `${result.git.repositoryRoot ?? "detected"}${result.git.dirty ? ", dirty" : ", clean"}` : "not detected"}\n`);
+  result.diagnostics.forEach((entry) => process.stdout.write(`${formatDiagnostic(entry)}\n`));
+}
+
 function printHelp(): void {
   process.stdout.write(`Flower ${FLOWER_VERSION}\n\n`);
   process.stdout.write("Usage:\n");
@@ -408,6 +432,7 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
+  process.stdout.write("  flower adopt <existing-project-path> [--json]\n");
   process.stdout.write("  flower security check [--project <path>] [--json]\n");
   process.stdout.write("  flower adapters sync [--project <path>] [--dry-run] [--json]\n");
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
@@ -672,6 +697,37 @@ async function main(): Promise<number> {
     const result = await statusTarget(args.target ?? ".");
     printStatus(result, args.json);
     return result.valid ? EXIT.success : EXIT.failure;
+  }
+
+  if (args.command === "adopt") {
+    if (!args.target) {
+      process.stderr.write("flower adopt requires an existing project directory\n");
+      return EXIT.invalidArguments;
+    }
+    const unsupported = unsupportedValueOptions(args, []);
+    if (unsupported.length > 0 || args.dryRun || !args.install || args.initializeGit) {
+      const option = unsupported[0] ? `--${unsupported[0]}` : args.dryRun ? "--dry-run" : !args.install ? "--skip-install" : "--git";
+      process.stderr.write(`Unsupported option for inspection-only flower adopt: ${option}\n`);
+      return EXIT.invalidArguments;
+    }
+    try {
+      const result = await inspectAdoptionProject(args.target, spawnCommand);
+      printAdoptionInspection(result, args.json);
+      return result.state === "ready" ? EXIT.success : EXIT.failure;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          schemaVersion: 1,
+          command: "adopt-inspect",
+          state: "blocked",
+          code: error instanceof AdoptionInspectionError ? error.code : "adopt.inspectionFailed",
+          message: error instanceof Error ? error.message : "Adoption inspection failed"
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : "Adoption inspection failed"}\n`);
+      }
+      return EXIT.failure;
+    }
   }
 
   if (args.command === "security") {
