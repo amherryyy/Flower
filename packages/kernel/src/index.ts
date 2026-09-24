@@ -32,3 +32,4 @@ export * from "./update-plan.js";
 export * from "./generated-text-merge.js";
 export * from "./metadata-migration.js";
 export * from "./adoption-inspection.js";
+export * from "./adoption-plan.js";
