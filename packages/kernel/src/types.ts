@@ -14,6 +14,47 @@ export interface ValidationResult {
   diagnostics: Diagnostic[];
 }
 
+export type AdoptionPackageManager = "npm" | "pnpm" | "yarn" | "bun";
+
+export interface AdoptionPackageManagerInspection {
+  state: "detected" | "missing" | "ambiguous";
+  selected?: AdoptionPackageManager;
+  evidence: Array<{ id: AdoptionPackageManager; paths: string[] }>;
+  declared?: string;
+}
+
+export interface AdoptionGitInspection {
+  present: boolean;
+  repositoryRoot?: "project" | "ancestor";
+  branch?: string;
+  head?: string;
+  detached?: boolean;
+  dirty?: boolean;
+}
+
+export interface AdoptionInspectionResult {
+  schemaVersion: 1;
+  command: "adopt-inspect";
+  projectRoot: string;
+  state: "ready" | "blocked";
+  alreadyManaged: boolean;
+  stack: {
+    languages: string[];
+    runtimes: string[];
+    web: string[];
+    databases: string[];
+  };
+  packageManager: AdoptionPackageManagerInspection;
+  databasePaths: string[];
+  ci: {
+    providers: string[];
+    files: string[];
+  };
+  agentInstructions: string[];
+  git: AdoptionGitInspection;
+  diagnostics: Diagnostic[];
+}
+
 export interface SecurityBaseline {
   $schema?: string;
   schemaVersion: 1;
