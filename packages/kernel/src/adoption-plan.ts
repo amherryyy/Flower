@@ -8,7 +8,8 @@ import type {
   AdoptionPathClassification,
   AdoptionPlan,
   AdoptionPlanConflict,
-  AdoptionPlanOptions
+  AdoptionPlanOptions,
+  AdoptionStack
 } from "./types.js";
 
 const MAX_FILES = 10_000;
@@ -40,43 +41,88 @@ function canonicalInspection(inspection: AdoptionInspectionResult): object {
   };
 }
 
-function metadataDocuments(
-  inspection: AdoptionInspectionResult,
-  options: AdoptionPlanOptions,
-  packageManager: string
-): Array<{ path: string; digest: string }> {
-  const stack = {
-    language: inspection.stack.languages[0] ?? "unknown",
-    runtime: inspection.stack.runtimes[0] ?? "unknown",
-    ...(inspection.stack.web[0] ? { web: inspection.stack.web[0] } : {}),
-    ...(inspection.stack.databases[0] ? { database: inspection.stack.databases[0] } : {}),
-    packageManager
+interface AdoptionMetadataSource {
+  project: AdoptionPlan["project"];
+  flowerVersion: string;
+  stack: AdoptionStack;
+  modules: string[];
+  adapters: AdoptionPlan["adapters"];
+  classifications: AdoptionPathClassification[];
+  excludedLocalRoots: string[];
+  preconditions: AdoptionPlan["preconditions"];
+}
+
+export interface AdoptionMetadataDocument {
+  path: string;
+  contents: string;
+  digest: string;
+}
+
+function adapterManifest(adapters: AdoptionPlan["adapters"]): Record<string, boolean> {
+  return Object.fromEntries(adapters.map((id) => [id === "github-actions" ? "githubActions" : id, true]));
+}
+
+export function createAdoptionMetadataDocuments(source: AdoptionMetadataSource): AdoptionMetadataDocument[] {
+  const existingPaths = new Set(source.classifications.map(({ path: existingPath }) => existingPath));
+  const record = {
+    schemaVersion: 1,
+    command: "adopt-record",
+    project: source.project,
+    flowerVersion: source.flowerVersion,
+    stack: source.stack,
+    modules: source.modules,
+    adapters: source.adapters,
+    classifications: source.classifications,
+    excludedLocalRoots: source.excludedLocalRoots,
+    preconditions: source.preconditions
   };
   const documents: Array<[string, object]> = [
     [".flower/project.json", {
+      $schema: "https://flower.dev/schemas/project/v1.json",
       schemaVersion: 1,
       mode: "project",
-      project: { id: options.projectId, name: options.projectName },
-      flower: { version: options.flowerVersion, channel: "stable" },
-      stack,
-      modules: {}
+      project: source.project,
+      flower: { version: source.flowerVersion, channel: "stable" },
+      stack: source.stack,
+      modules: {},
+      ...(source.adapters.length > 0 ? { adapters: adapterManifest(source.adapters) } : {})
     }],
     [".flower/ownership.json", {
       version: 1,
       rules: [
-        { pattern: ".flower/**", owner: "protected", policy: "migration-engine-only" },
+        { pattern: ".flower/project.json", owner: "protected", policy: "migration-engine-only" },
+        { pattern: ".flower/adoption.json", owner: "protected", policy: "migration-engine-only" },
+        { pattern: ".flower/lock.json", owner: "generated", policy: "replace-if-unmodified" },
+        { pattern: ".flower/ownership.json", owner: "protected", policy: "migration-engine-only" },
+        { pattern: ".flower/generated/**", owner: "generated", policy: "replace-if-unmodified" },
+        { pattern: ".flower/cache/**", owner: "local", policy: "never-commit" },
+        { pattern: ".flower/journal/local/**", owner: "local", policy: "never-commit" },
+        { pattern: ".flower/journal/workflows/**", owner: "local", policy: "never-commit" },
+        ...(!existingPaths.has("AGENTS.md") ? [{ pattern: "AGENTS.md", owner: "generated", policy: "replace-if-unmodified" }] : []),
+        ...(!existingPaths.has("CLAUDE.md") ? [{ pattern: "CLAUDE.md", owner: "generated", policy: "replace-if-unmodified" }] : []),
+        ...(!existingPaths.has(".github/workflows/flower-generated.yml")
+          ? [{ pattern: ".github/workflows/flower-generated.yml", owner: "generated", policy: "replace-if-unmodified" }]
+          : []),
+        { pattern: "database/migrations/flower/**", owner: "protected", policy: "migration-engine-only" },
+        { pattern: "src/flower/**", owner: "generated", policy: "replace-if-unmodified" },
+        ...source.classifications.map(({ path: existingPath }) => ({
+          pattern: existingPath,
+          owner: "project",
+          policy: "never-overwrite"
+        })),
         { pattern: "**", owner: "project", policy: "never-overwrite" }
       ]
     }],
-    [".flower/lock.json", { lockVersion: 1, flowerVersion: options.flowerVersion, modules: {}, generatedFiles: {} }]
+    [".flower/lock.json", { lockVersion: 1, flowerVersion: source.flowerVersion, modules: {}, generatedFiles: {} }],
+    [".flower/adoption.json", record]
   ];
-  return documents.map(([documentPath, document]) => ({
-    path: documentPath,
-    digest: sha256(`${JSON.stringify(document, null, 2)}\n`)
-  }));
+  return documents.map(([documentPath, document]) => {
+    const contents = `${JSON.stringify(document, null, 2)}\n`;
+    return { path: documentPath, contents, digest: sha256(contents) };
+  });
 }
 
-async function classifyProject(root: string): Promise<{
+export async function classifyAdoptionProject(root: string): Promise<{
   classifications: AdoptionPathClassification[];
   conflicts: AdoptionPlanConflict[];
 }> {
@@ -112,7 +158,7 @@ async function classifyProject(root: string): Promise<{
   return { classifications, conflicts };
 }
 
-function identity(payload: Omit<AdoptionPlan, "planId" | "digest">): Pick<AdoptionPlan, "planId" | "digest"> {
+export function adoptionPlanIdentity(payload: Omit<AdoptionPlan, "planId" | "digest">): Pick<AdoptionPlan, "planId" | "digest"> {
   const digest = sha256(JSON.stringify(payload));
   return { digest, planId: `adopt-${digest.slice(7, 23)}` };
 }
@@ -124,7 +170,7 @@ export async function createAdoptionPlan(
   if (inspection.state !== "ready" || inspection.alreadyManaged) {
     throw new AdoptionPlanError("A ready unmanaged adoption inspection is required", "adopt.inspectionBlocked");
   }
-  if (!ID.test(options.projectId) || !options.projectName.trim() || options.projectName.length > 100) {
+  if (!ID.test(options.projectId) || options.projectId.length < 2 || options.projectId.length > 64 || !options.projectName.trim() || options.projectName.length > 100) {
     throw new AdoptionPlanError("Adoption project identity is invalid", "adopt.invalidProjectIdentity");
   }
   if (!isValidSemVer(options.flowerVersion)) throw new AdoptionPlanError("Flower version is invalid", "adopt.invalidFlowerVersion");
@@ -140,8 +186,15 @@ export async function createAdoptionPlan(
   if (adapters.some((id) => !ADAPTERS.has(id))) {
     throw new AdoptionPlanError("Adapter ids must be codex, claude, or github-actions", "adopt.invalidAdapter");
   }
+  const stack: AdoptionStack = {
+    language: inspection.stack.languages[0] ?? "unknown",
+    runtime: inspection.stack.runtimes[0] ?? "unknown",
+    ...(inspection.stack.web[0] ? { web: inspection.stack.web[0] } : {}),
+    ...(inspection.stack.databases[0] ? { database: inspection.stack.databases[0] } : {}),
+    packageManager: inspection.packageManager.selected
+  };
   const root = path.resolve(inspection.projectRoot);
-  const classified = await classifyProject(root);
+  const classified = await classifyAdoptionProject(root);
   const conflicts = [...classified.conflicts];
   if (adapters.includes("codex") && inspection.agentInstructions.includes("AGENTS.md")) {
     conflicts.push({ path: "AGENTS.md", reason: "existing-agent-instructions", message: "Codex instructions require a reviewed merge" });
@@ -153,7 +206,6 @@ export async function createAdoptionPlan(
     conflicts.push({ path: ".github/workflows", reason: "existing-ci-workflow", message: "GitHub Actions adoption requires a reviewed merge" });
   }
   conflicts.sort((left, right) => compareText(left.path, right.path) || compareText(left.reason, right.reason));
-  const metadata = metadataDocuments(inspection, options, inspection.packageManager.selected);
   const preconditions = {
     inspectionDigest: sha256(JSON.stringify(canonicalInspection(inspection))),
     projectStateDigest: sha256(JSON.stringify(classified.classifications))
@@ -166,20 +218,22 @@ export async function createAdoptionPlan(
     project: { id: options.projectId, name: options.projectName },
     flowerVersion: options.flowerVersion,
     packageManager: inspection.packageManager.selected,
+    stack,
     modules,
     adapters,
     classifications: classified.classifications,
     excludedLocalRoots: [...EXCLUDED_LOCAL_ROOTS],
-    metadata,
+    metadata: [],
     conflicts,
     preconditions
   };
-  return { ...identity(payload), ...payload };
+  payload.metadata = createAdoptionMetadataDocuments(payload).map(({ path: documentPath, digest }) => ({ path: documentPath, digest }));
+  return { ...adoptionPlanIdentity(payload), ...payload };
 }
 
 export function verifyAdoptionPlan(plan: AdoptionPlan): void {
   const { planId, digest, ...payload } = plan;
-  const expected = identity(payload);
+  const expected = adoptionPlanIdentity(payload);
   if (planId !== expected.planId || digest !== expected.digest) {
     throw new AdoptionPlanError("Adoption plan digest is invalid", "adopt.invalidPlan");
   }

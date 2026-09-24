@@ -63,6 +63,14 @@ export interface AdoptionPlanOptions {
   adapters?: readonly ("codex" | "claude" | "github-actions")[];
 }
 
+export interface AdoptionStack {
+  language: string;
+  runtime: string;
+  web?: string;
+  database?: string;
+  packageManager: AdoptionPackageManager;
+}
+
 export interface AdoptionPathClassification {
   path: string;
   owner: "project";
@@ -87,6 +95,7 @@ export interface AdoptionPlan {
   project: { id: string; name: string };
   flowerVersion: string;
   packageManager: AdoptionPackageManager;
+  stack: AdoptionStack;
   modules: string[];
   adapters: ("codex" | "claude" | "github-actions")[];
   classifications: AdoptionPathClassification[];
@@ -97,6 +106,25 @@ export interface AdoptionPlan {
     inspectionDigest: string;
     projectStateDigest: string;
   };
+}
+
+export interface AdoptionApplicationHooks {
+  afterWrite?(path: string, index: number): Promise<void> | void;
+  writeJournal?(projectRoot: string, entry: JournalEntry): Promise<string>;
+}
+
+export interface AdoptionApplicationOptions {
+  projectSchema: object;
+  ownershipSchema: object;
+  hooks?: AdoptionApplicationHooks;
+}
+
+export interface AdoptionResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  projectRoot: string;
+  changedPaths: string[];
+  journalPath?: string;
 }
 
 export interface SecurityBaseline {

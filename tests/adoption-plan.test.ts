@@ -61,7 +61,7 @@ describe("F7 adoption planning", () => {
     expect(first.classifications.every(({ owner, policy }) => owner === "project" && policy === "never-overwrite")).toBe(true);
     expect(first.excludedLocalRoots).toContain("node_modules");
     expect(first.metadata.map(({ path }) => path)).toEqual([
-      ".flower/project.json", ".flower/ownership.json", ".flower/lock.json"
+      ".flower/project.json", ".flower/ownership.json", ".flower/lock.json", ".flower/adoption.json"
     ]);
     expect(first.planId).toMatch(/^adopt-[a-f0-9]{16}$/);
     expect(() => verifyAdoptionPlan(first)).not.toThrow();

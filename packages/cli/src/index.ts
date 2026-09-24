@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   FLOWER_VERSION,
+  AdoptionApplicationError,
   AdoptionPlanError,
   AdoptionInspectionError,
   AgentAdapterMaterializationError,
@@ -15,6 +16,7 @@ import {
   applyModuleDispositionPlan,
   applyModuleAddPlan,
   applyAgentAdapterMaterializationPlan,
+  applyAdoptionPlan,
   applyInitPlan,
   checkProjectSecurity,
   combineValidationResults,
@@ -24,6 +26,7 @@ import {
   createModuleDispositionPlan,
   createAgentAdapterMaterializationPlan,
   inspectAdoptionProject,
+  loadAppliedAdoptionPlan,
   loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
@@ -56,6 +59,7 @@ interface ParsedArguments {
   version: boolean;
   help: boolean;
   dryRun: boolean;
+  inspect: boolean;
   install: boolean;
   initializeGit: boolean;
   values: Record<string, string>;
@@ -70,7 +74,7 @@ interface DoctorCheck {
 
 function parseArguments(argv: string[]): ParsedArguments {
   const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog", "--modules", "--adapters"]);
-  const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--skip-install", "--git"]);
+  const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--inspect", "--skip-install", "--git"]);
   const values: Record<string, string> = {};
   const positional: string[] = [];
   const unknownOptions: string[] = [];
@@ -96,6 +100,7 @@ function parseArguments(argv: string[]): ParsedArguments {
     version: argv.includes("--version") || argv.includes("-v"),
     help: argv.includes("--help") || argv.includes("-h"),
     dryRun: argv.includes("--dry-run"),
+    inspect: argv.includes("--inspect"),
     install: !argv.includes("--skip-install"),
     initializeGit: argv.includes("--git"),
     values,
@@ -455,7 +460,8 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
-  process.stdout.write("  flower adopt <existing-project-path> [--json]\n");
+  process.stdout.write("  flower adopt <existing-project-path> --inspect [--json]\n");
+  process.stdout.write("  flower adopt <existing-project-path> [--name <name>] [--id <id>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --dry-run [--name <name>] [--id <id>]\n");
   process.stdout.write("               [--modules <ids>] [--adapters <ids>] [--json]\n");
   process.stdout.write("  flower security check [--project <path>] [--json]\n");
@@ -483,6 +489,11 @@ async function main(): Promise<number> {
   if (args.help || !args.command) {
     printHelp();
     return EXIT.success;
+  }
+
+  if (args.inspect && args.command !== "adopt") {
+    process.stderr.write(`Unsupported option for flower ${args.command}: --inspect\n`);
+    return EXIT.invalidArguments;
   }
 
   if (args.command === "init") {
@@ -729,44 +740,74 @@ async function main(): Promise<number> {
       process.stderr.write("flower adopt requires an existing project directory\n");
       return EXIT.invalidArguments;
     }
-    const allowed = args.dryRun ? ["name", "id", "modules", "adapters"] : [];
+    const allowed = args.inspect ? [] : ["name", "id", "modules", "adapters"];
     const unsupported = unsupportedValueOptions(args, allowed);
-    if (unsupported.length > 0 || !args.install || args.initializeGit) {
-      const option = unsupported[0] ? `--${unsupported[0]}` : !args.install ? "--skip-install" : "--git";
+    if (unsupported.length > 0 || (args.inspect && args.dryRun) || !args.install || args.initializeGit) {
+      const option = unsupported[0]
+        ? `--${unsupported[0]}`
+        : args.inspect && args.dryRun ? "--dry-run" : !args.install ? "--skip-install" : "--git";
       process.stderr.write(`Unsupported option for flower adopt: ${option}\n`);
       return EXIT.invalidArguments;
     }
     try {
       const inspection = await inspectAdoptionProject(args.target, spawnCommand);
-      if (!args.dryRun) {
+      if (args.inspect) {
         printAdoptionInspection(inspection, args.json);
         return inspection.state === "ready" ? EXIT.success : EXIT.failure;
       }
       const projectId = args.values.id ?? defaultProjectId(args.target);
+      const projectName = args.values.name ?? defaultProjectName(projectId);
+      const modules = commaSeparated(args.values.modules);
+      const adapters = commaSeparated(args.values.adapters) as ("codex" | "claude" | "github-actions")[];
+      if (inspection.alreadyManaged) {
+        const plan = await loadAppliedAdoptionPlan(args.target);
+        if (plan.project.id !== projectId || plan.project.name !== projectName ||
+            JSON.stringify(plan.modules) !== JSON.stringify([...new Set(modules)].sort()) ||
+            JSON.stringify(plan.adapters) !== JSON.stringify([...new Set(adapters)].sort())) {
+          throw new AdoptionApplicationError("A different adoption is already applied", "adopt.alreadyManaged");
+        }
+        const result = { status: "unchanged" as const, planId: plan.planId, projectRoot: plan.projectRoot, changedPaths: [] };
+        if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+        else process.stdout.write(`${plan.project.name} is already adopted by Flower.\n`);
+        return EXIT.success;
+      }
+      if (inspection.state !== "ready") {
+        printAdoptionInspection(inspection, args.json);
+        return EXIT.failure;
+      }
       const plan = await createAdoptionPlan(inspection, {
         projectId,
-        projectName: args.values.name ?? defaultProjectName(projectId),
+        projectName,
         flowerVersion: FLOWER_VERSION,
-        modules: commaSeparated(args.values.modules),
-        adapters: commaSeparated(args.values.adapters) as ("codex" | "claude" | "github-actions")[]
+        modules,
+        adapters
       });
-      printAdoptionPlan(plan, args.json);
-      return plan.state === "apply" ? EXIT.success : EXIT.failure;
+      if (args.dryRun) {
+        printAdoptionPlan(plan, args.json);
+        return plan.state === "apply" ? EXIT.success : EXIT.failure;
+      }
+      const result = await applyAdoptionPlan(plan, {
+        projectSchema: await loadJson(path.join(schemaRoot(), "project", "v1.json")) as object,
+        ownershipSchema: await loadJson(path.join(schemaRoot(), "ownership", "v1.json")) as object
+      });
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else process.stdout.write(`Adopted ${plan.project.name} at ${result.projectRoot}.\n`);
+      return EXIT.success;
     } catch (error) {
       if (args.json) {
         process.stdout.write(`${JSON.stringify({
           schemaVersion: 1,
-          command: args.dryRun ? "adopt" : "adopt-inspect",
+          command: args.inspect ? "adopt-inspect" : "adopt",
           state: "blocked",
-          code: error instanceof AdoptionInspectionError || error instanceof AdoptionPlanError
+          code: error instanceof AdoptionInspectionError || error instanceof AdoptionPlanError || error instanceof AdoptionApplicationError
             ? error.code
-            : args.dryRun ? "adopt.planFailed" : "adopt.inspectionFailed",
-          message: error instanceof Error ? error.message : args.dryRun ? "Adoption planning failed" : "Adoption inspection failed"
+            : args.inspect ? "adopt.inspectionFailed" : args.dryRun ? "adopt.planFailed" : "adopt.applicationFailed",
+          message: error instanceof Error ? error.message : args.inspect ? "Adoption inspection failed" : args.dryRun ? "Adoption planning failed" : "Adoption application failed"
         }, null, 2)}\n`);
       } else {
-        process.stderr.write(`${error instanceof Error ? error.message : args.dryRun ? "Adoption planning failed" : "Adoption inspection failed"}\n`);
+        process.stderr.write(`${error instanceof Error ? error.message : args.inspect ? "Adoption inspection failed" : args.dryRun ? "Adoption planning failed" : "Adoption application failed"}\n`);
       }
-      return EXIT.failure;
+      return error instanceof AdoptionApplicationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
     }
   }
 
