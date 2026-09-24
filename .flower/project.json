@@ -89,7 +89,8 @@
     "versionedMetadataMigrations": true,
     "phaseF6ExitCriteriaVerified": true,
     "adoptionInspection": true,
-    "adoptionPlanning": true
+    "adoptionPlanning": true,
+    "transactionalAdoptionApplication": true
   },
   "quality": {
     "minimumCoverage": 80,

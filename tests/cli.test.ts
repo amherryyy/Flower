@@ -97,7 +97,7 @@ describe("flower CLI", () => {
     writeFileSync(path.join(target, "package-lock.json"), "{}\n");
     writeFileSync(path.join(target, "tsconfig.json"), "{}\n");
 
-    const result = run("adopt", target, "--json");
+    const result = run("adopt", target, "--inspect", "--json");
     expect(result.status).toBe(0);
     const output = JSON.parse(result.stdout) as {
       command: string;
@@ -162,6 +162,32 @@ describe("flower CLI", () => {
     expect(() => readFileSync(path.join(target, ".flower", "project.json"))).toThrow();
   });
 
+  it("transactionally adopts an existing project and repeats as a no-op", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), `${JSON.stringify({
+      name: "existing-app",
+      packageManager: "npm@11",
+      dependencies: { next: "15.0.0" }
+    })}\n`);
+    writeFileSync(path.join(target, "package-lock.json"), "{}\n");
+    const existingPath = path.join(target, "existing.ts");
+    writeFileSync(existingPath, "export const existing = true;\n");
+
+    const applied = run("adopt", target, "--id", "existing-app", "--name", "Existing App", "--json");
+    expect(applied.status).toBe(0);
+    const output = JSON.parse(applied.stdout) as { result: { status: string; changedPaths: string[] } };
+    expect(output.result.status).toBe("completed");
+    expect(output.result.changedPaths).toContain(".flower/adoption.json");
+    expect(readFileSync(existingPath, "utf8")).toBe("export const existing = true;\n");
+    expect(JSON.parse(readFileSync(path.join(target, ".flower", "project.json"), "utf8")))
+      .toEqual(expect.objectContaining({ mode: "project", project: { id: "existing-app", name: "Existing App" } }));
+    expect(run("validate", target).status).toBe(0);
+
+    const repeated = run("adopt", target, "--id", "existing-app", "--name", "Existing App", "--json");
+    expect(repeated.status).toBe(0);
+    expect((JSON.parse(repeated.stdout) as { result: { status: string } }).result.status).toBe("unchanged");
+  });
+
   it("returns a blocked dry-run when a requested adapter overlaps existing project files", () => {
     const target = temporaryDirectory();
     writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));
@@ -198,7 +224,7 @@ describe("flower CLI", () => {
     writeFileSync(path.join(target, "package-lock.json"), "{}");
     writeFileSync(path.join(target, "pnpm-lock.yaml"), "");
 
-    const result = run("adopt", target, "--json");
+    const result = run("adopt", target, "--inspect", "--json");
     expect(result.status).toBe(1);
     const output = JSON.parse(result.stdout) as { state: string; diagnostics: Array<{ code: string }> };
     expect(output.state).toBe("blocked");
