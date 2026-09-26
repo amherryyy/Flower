@@ -109,6 +109,25 @@ describe("offline security baseline", () => {
     ]));
   });
 
+  it("accepts the exact reviewed license expressions used by the bundled template", async () => {
+    const directory = project();
+    const templateBaseline = await readFile(path.join(root, "templates/next-supabase/.flower/security.json"), "utf8");
+    writeFileSync(path.join(directory, ".flower/security.json"), templateBaseline);
+    writeFileSync(path.join(directory, "package-lock.json"), JSON.stringify({
+      lockfileVersion: 3,
+      packages: {
+        "": { name: "fixture" },
+        "node_modules/libvips": { version: "1.0.0", integrity: "sha512-YWJjZA==", license: "LGPL-3.0-or-later" },
+        "node_modules/libvips-native": { version: "1.0.0", integrity: "sha512-YWJjZA==", license: "Apache-2.0 AND LGPL-3.0-or-later" },
+        "node_modules/libvips-wasm": { version: "1.0.0", integrity: "sha512-YWJjZA==", license: "Apache-2.0 AND LGPL-3.0-or-later AND MIT" },
+        "node_modules/browser-data": { version: "1.0.0", integrity: "sha512-YWJjZA==", license: "CC-BY-4.0" }
+      }
+    }));
+
+    const result = await checkProjectSecurity(directory, await schema());
+    expect(result.diagnostics.filter((entry) => entry.code === "security.dependency.licenseDenied")).toEqual([]);
+  });
+
   it("requires immutable CI action references, read-only contents, and the configured audit", async () => {
     const directory = project();
     const baselinePath = path.join(directory, ".flower/security.json");

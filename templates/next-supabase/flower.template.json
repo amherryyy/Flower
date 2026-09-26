@@ -16,7 +16,7 @@
     { "source": ".flower/lock.json", "target": ".flower/lock.json", "digest": "sha256:f120e19563892b9898339f80337b86e58b60a623a63a4ba1f9af59c245b492ff", "render": true },
     { "source": ".flower/ownership.json", "target": ".flower/ownership.json", "digest": "sha256:64c8ecaa980d3da35f3ee97a90a514ed816374e3f00401a842aead961b86459f" },
     { "source": ".flower/project.json", "target": ".flower/project.json", "digest": "sha256:20cd9f6ea3c83f582bc93723e6bbcabfffb42702e2fe948e0621da79dc9a1019", "render": true },
-    { "source": ".flower/security.json", "target": ".flower/security.json", "digest": "sha256:051177b895030581cf4a5bb1f026ade4cf4445d0325194e9415a950b238849aa" },
+    { "source": ".flower/security.json", "target": ".flower/security.json", "digest": "sha256:f54f487d1cdeade1819c219a9462c0a3a1caf60c29ec23a48718caa6e9e4a12e" },
     { "source": ".flower/uploads.json", "target": ".flower/uploads.json", "digest": "sha256:452889b3ad89bf74cb4d1a5b7a1273754df633bd27ece4998d1a65c7dfb2191a" },
     { "source": ".github/workflows/ci.yml", "target": ".github/workflows/ci.yml", "digest": "sha256:29079260b0bf1af9c565ad40ed8855016c52f7797ab5c916043f478d172e87ab" },
     { "source": "app/layout.tsx", "target": "app/layout.tsx", "digest": "sha256:a593135fdc0364056d5952508543f95b158929f7ec5720b0e41d5877b2c4ff34", "render": true },
