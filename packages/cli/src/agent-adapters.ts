@@ -224,6 +224,28 @@ export async function loadAgentAdapterCliContext(projectRootInput: string): Prom
   return { projectRoot, bundle, stateSchema: stateSchema as object };
 }
 
+export async function loadAgentAdapterAdoptionContext(
+  projectRootInput: string,
+  project: ProjectManifest,
+  ownership: OwnershipManifest
+): Promise<AgentAdapterCliContext> {
+  const projectRoot = path.resolve(projectRootInput);
+  const realRoot = await assertRegularRoot(projectRoot);
+  const [workflows, paths, stateSchema] = await Promise.all([
+    loadWorkflows(),
+    sourcePaths(projectRoot, realRoot),
+    loadJson(schemaPath("adapter-state"))
+  ]);
+  const bundle = createAgentAdapterBundle({
+    project,
+    ownership,
+    workflows,
+    ...paths,
+    notesPath: "docs/agent-notes.md"
+  });
+  return { projectRoot, bundle, stateSchema: stateSchema as object };
+}
+
 async function adapterStateExists(projectRoot: string): Promise<boolean> {
   try {
     await lstat(path.join(projectRoot, ".flower", "generated", "agent-adapters.json"));

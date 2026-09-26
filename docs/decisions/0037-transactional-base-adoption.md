@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted for Phase F7.
+Accepted for Phase F7. The selected-module and adapter limitation is superseded by ADR 0038.
 
 ## Context
 

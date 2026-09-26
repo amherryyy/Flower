@@ -188,6 +188,40 @@ describe("flower CLI", () => {
     expect((JSON.parse(repeated.stdout) as { result: { status: string } }).result.status).toBe("unchanged");
   });
 
+  it("composes verified modules and a Codex adapter into one adoption", () => {
+    const target = temporaryDirectory();
+    writeFileSync(path.join(target, "package.json"), `${JSON.stringify({
+      name: "composed-app",
+      packageManager: "npm@11",
+      dependencies: { next: "15.0.0" }
+    })}\n`);
+    writeFileSync(path.join(target, "package-lock.json"), "{}\n");
+
+    const result = run(
+      "adopt",
+      target,
+      "--id",
+      "composed-app",
+      "--name",
+      "Composed App",
+      "--modules",
+      "rbac",
+      "--adapters",
+      "codex",
+      "--json"
+    );
+    expect(result.status).toBe(0);
+    const project = JSON.parse(readFileSync(path.join(target, ".flower", "project.json"), "utf8")) as {
+      modules: Record<string, string>;
+      adapters: Record<string, boolean>;
+    };
+    expect(project.modules).toEqual({ auth: "1.0.0", organizations: "1.0.0", rbac: "1.0.0" });
+    expect(project.adapters).toEqual({ codex: true });
+    expect(readFileSync(path.join(target, "src", "flower", "rbac.ts"), "utf8")).toContain("flowerRbacModule");
+    expect(readFileSync(path.join(target, "AGENTS.md"), "utf8")).toContain("# Composed App — Codex adapter");
+    expect(run("validate", target).status).toBe(0);
+  });
+
   it("returns a blocked dry-run when a requested adapter overlaps existing project files", () => {
     const target = temporaryDirectory();
     writeFileSync(path.join(target, "package.json"), JSON.stringify({ packageManager: "npm@11" }));

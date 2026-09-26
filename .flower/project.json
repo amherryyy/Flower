@@ -90,7 +90,8 @@
     "phaseF6ExitCriteriaVerified": true,
     "adoptionInspection": true,
     "adoptionPlanning": true,
-    "transactionalAdoptionApplication": true
+    "transactionalAdoptionApplication": true,
+    "composedAdoption": true
   },
   "quality": {
     "minimumCoverage": 80,

@@ -1,15 +1,18 @@
 import { lstat, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import { agentAdapterBundleDigest } from "./agent-adapter-materialization.js";
+import { resolveModules } from "./module.js";
 import { normalizeProjectPath } from "./ownership.js";
 import { isValidSemVer } from "./semver.js";
-import { sha256 } from "./template.js";
+import { renderTemplate, sha256 } from "./template.js";
 import type {
   AdoptionInspectionResult,
   AdoptionPathClassification,
   AdoptionPlan,
   AdoptionPlanConflict,
   AdoptionPlanOptions,
-  AdoptionStack
+  AdoptionStack,
+  VerifiedModulePackage
 } from "./types.js";
 
 const MAX_FILES = 10_000;
@@ -47,6 +50,8 @@ interface AdoptionMetadataSource {
   stack: AdoptionStack;
   modules: string[];
   adapters: AdoptionPlan["adapters"];
+  moduleComposition?: AdoptionPlan["moduleComposition"];
+  adapterComposition?: AdoptionPlan["adapterComposition"];
   classifications: AdoptionPathClassification[];
   excludedLocalRoots: string[];
   preconditions: AdoptionPlan["preconditions"];
@@ -72,6 +77,8 @@ export function createAdoptionMetadataDocuments(source: AdoptionMetadataSource):
     stack: source.stack,
     modules: source.modules,
     adapters: source.adapters,
+    ...(source.moduleComposition ? { moduleComposition: source.moduleComposition } : {}),
+    ...(source.adapterComposition ? { adapterComposition: source.adapterComposition } : {}),
     classifications: source.classifications,
     excludedLocalRoots: source.excludedLocalRoots,
     preconditions: source.preconditions
@@ -105,6 +112,11 @@ export function createAdoptionMetadataDocuments(source: AdoptionMetadataSource):
           : []),
         { pattern: "database/migrations/flower/**", owner: "protected", policy: "migration-engine-only" },
         { pattern: "src/flower/**", owner: "generated", policy: "replace-if-unmodified" },
+        ...(source.moduleComposition?.files.map(({ path: generatedPath }) => ({
+          pattern: generatedPath,
+          owner: "generated",
+          policy: "replace-if-unmodified"
+        })) ?? []),
         ...source.classifications.map(({ path: existingPath }) => ({
           pattern: existingPath,
           owner: "project",
@@ -120,6 +132,92 @@ export function createAdoptionMetadataDocuments(source: AdoptionMetadataSource):
     const contents = `${JSON.stringify(document, null, 2)}\n`;
     return { path: documentPath, contents, digest: sha256(contents) };
   });
+}
+
+async function moduleComposition(
+  modules: string[],
+  catalog: readonly VerifiedModulePackage[] | undefined,
+  project: AdoptionPlan["project"],
+  flowerVersion: string,
+  existingPaths: Set<string>
+): Promise<AdoptionPlan["moduleComposition"]> {
+  if (modules.length === 0) return undefined;
+  if (!catalog) throw new AdoptionPlanError("A verified module catalog is required for selected modules", "adopt.moduleCatalogMissing");
+  const resolution = resolveModules(catalog.map((entry) => entry.manifest), modules, {}, flowerVersion);
+  if (!resolution.valid) {
+    throw new AdoptionPlanError(
+      `Module dependency resolution failed: ${resolution.diagnostics.map(({ code }) => code).join(", ")}`,
+      "adopt.moduleResolutionFailed"
+    );
+  }
+  const byId = new Map(catalog.map((entry) => [entry.manifest.id, entry]));
+  const files: NonNullable<AdoptionPlan["moduleComposition"]>["files"] = [];
+  const targets = new Set<string>();
+  for (const moduleId of resolution.resolved) {
+    const modulePackage = byId.get(moduleId)!;
+    const values = {
+      projectId: project.id,
+      projectIdJson: JSON.stringify(project.id),
+      projectNameJson: JSON.stringify(project.name),
+      moduleId,
+      moduleIdJson: JSON.stringify(moduleId),
+      moduleVersion: modulePackage.manifest.version,
+      moduleVersionJson: JSON.stringify(modulePackage.manifest.version)
+    };
+    for (const artifact of modulePackage.artifacts) {
+      const target = normalizeProjectPath(artifact.path);
+      const portable = target.toLowerCase();
+      if (targets.has(portable) || existingPaths.has(portable)) {
+        throw new AdoptionPlanError(`Module generated path already exists: ${target}`, "adopt.modulePathConflict");
+      }
+      const source = await readFile(artifact.sourcePath);
+      if (sha256(source) !== artifact.sourceDigest) {
+        throw new AdoptionPlanError(`Module source changed after catalog verification: ${moduleId}/${target}`, "adopt.modulePackageChanged");
+      }
+      targets.add(portable);
+      files.push({
+        moduleId,
+        path: target,
+        sourceDigest: artifact.sourceDigest,
+        outputDigest: sha256(renderTemplate(source.toString("utf8"), values))
+      });
+    }
+  }
+  files.sort((left, right) => compareText(left.path, right.path));
+  return {
+    requested: resolution.requested,
+    resolved: resolution.resolved,
+    packages: resolution.resolved.map((id) => {
+      const entry = byId.get(id)!;
+      return { id, version: entry.manifest.version, digest: entry.digest };
+    }),
+    files
+  };
+}
+
+function adapterComposition(
+  adapters: AdoptionPlan["adapters"],
+  bundle: AdoptionPlanOptions["adapterBundle"]
+): AdoptionPlan["adapterComposition"] {
+  if (adapters.length === 0) return undefined;
+  if (!bundle) throw new AdoptionPlanError("A verified adapter bundle is required for selected adapters", "adopt.adapterBundleMissing");
+  const artifactAdapters = bundle.artifacts.map(({ adapter }) => adapter).sort();
+  if (JSON.stringify(artifactAdapters) !== JSON.stringify(adapters) ||
+      bundle.artifacts.some(({ missingCapabilities }) => missingCapabilities.length > 0)) {
+    throw new AdoptionPlanError("Adapter bundle does not match the requested adapters", "adopt.adapterBundleMismatch");
+  }
+  return {
+    bundleDigest: agentAdapterBundleDigest(bundle),
+    statePath: bundle.statePath,
+    stateDigest: bundle.stateDigest,
+    artifacts: bundle.artifacts.map(({ adapter, path: artifactPath, generatorVersion, inputDigest, outputDigest }) => ({
+      adapter,
+      path: artifactPath,
+      generatorVersion,
+      inputDigest,
+      outputDigest
+    }))
+  };
 }
 
 export async function classifyAdoptionProject(root: string): Promise<{
@@ -195,6 +293,7 @@ export async function createAdoptionPlan(
   };
   const root = path.resolve(inspection.projectRoot);
   const classified = await classifyAdoptionProject(root);
+  const existingPaths = new Set(classified.classifications.map(({ path: existingPath }) => existingPath.toLowerCase()));
   const conflicts = [...classified.conflicts];
   if (adapters.includes("codex") && inspection.agentInstructions.includes("AGENTS.md")) {
     conflicts.push({ path: "AGENTS.md", reason: "existing-agent-instructions", message: "Codex instructions require a reviewed merge" });
@@ -210,6 +309,11 @@ export async function createAdoptionPlan(
     inspectionDigest: sha256(JSON.stringify(canonicalInspection(inspection))),
     projectStateDigest: sha256(JSON.stringify(classified.classifications))
   };
+  const composedModules = await moduleComposition(modules, options.moduleCatalog, {
+    id: options.projectId,
+    name: options.projectName
+  }, options.flowerVersion, existingPaths);
+  const composedAdapters = conflicts.length === 0 ? adapterComposition(adapters, options.adapterBundle) : undefined;
   const payload: Omit<AdoptionPlan, "planId" | "digest"> = {
     schemaVersion: 1,
     command: "adopt",
@@ -221,6 +325,8 @@ export async function createAdoptionPlan(
     stack,
     modules,
     adapters,
+    ...(composedModules ? { moduleComposition: composedModules } : {}),
+    ...(composedAdapters ? { adapterComposition: composedAdapters } : {}),
     classifications: classified.classifications,
     excludedLocalRoots: [...EXCLUDED_LOCAL_ROOTS],
     metadata: [],

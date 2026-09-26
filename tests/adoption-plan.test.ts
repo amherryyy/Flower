@@ -1,10 +1,11 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   createAdoptionPlan,
   inspectAdoptionProject,
+  loadModuleCatalog,
   verifyAdoptionPlan,
   type CommandRunner
 } from "../packages/kernel/src/index.js";
@@ -42,12 +43,17 @@ describe("F7 adoption planning", () => {
   it("creates a deterministic digest-protected plan with project-owned existing files", async () => {
     const directory = await fixture();
     const inspection = await inspectAdoptionProject(directory, noGit);
+    const moduleCatalog = await loadModuleCatalog(
+      path.resolve(import.meta.dirname, "../modules"),
+      JSON.parse(await readFile(path.resolve(import.meta.dirname, "../schemas/module/v1.json"), "utf8")) as object,
+      JSON.parse(await readFile(path.resolve(import.meta.dirname, "../schemas/migration/v1.json"), "utf8")) as object
+    );
     const options = {
       projectId: "existing-app",
       projectName: "Existing App",
       flowerVersion: "0.1.0",
       modules: ["rbac", "auth", "auth"],
-      adapters: ["codex"] as const
+      moduleCatalog
     };
     const first = await createAdoptionPlan(inspection, options);
     const second = await createAdoptionPlan(inspection, { ...options, modules: [...options.modules].reverse() });
@@ -55,6 +61,7 @@ describe("F7 adoption planning", () => {
     expect(first).toEqual(second);
     expect(first.state).toBe("apply");
     expect(first.modules).toEqual(["auth", "rbac"]);
+    expect(first.moduleComposition?.resolved).toEqual(["auth", "organizations", "rbac"]);
     expect(first.classifications.map(({ path }) => path)).toEqual([
       "package-lock.json", "package.json", "src/app.ts", "tsconfig.json"
     ]);

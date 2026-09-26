@@ -5,14 +5,18 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   AdoptionApplicationError,
   applyAdoptionPlan,
+  createAdoptionMetadataDocuments,
   classifyPath,
   createAdoptionPlan,
+  createAgentAdapterBundle,
   inspectAdoptionProject,
   loadAppliedAdoptionPlan,
+  loadModuleCatalog,
   writeLocalJournal,
   type AdoptionApplicationOptions,
   type CommandRunner,
-  type OwnershipManifest
+  type OwnershipManifest,
+  type ProjectManifest
 } from "../packages/kernel/src/index.js";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "..");
@@ -58,6 +62,14 @@ async function plan(directory: string) {
     projectName: "Existing App",
     flowerVersion: "0.1.0"
   });
+}
+
+async function catalog() {
+  return await loadModuleCatalog(
+    path.join(repositoryRoot, "modules"),
+    await json(path.join(repositoryRoot, "schemas", "module", "v1.json")),
+    await json(path.join(repositoryRoot, "schemas", "migration", "v1.json"))
+  );
 }
 
 describe("F7 adoption application", () => {
@@ -143,18 +155,55 @@ describe("F7 adoption application", () => {
     await expect(readFile(path.join(journalFailureRoot, ".flower", "adoption.json"))).rejects.toMatchObject({ code: "ENOENT" });
   });
 
-  it("rejects selected follow-on work and detects drift in applied metadata", async () => {
+  it("rolls back composed modules with the outer adoption transaction and detects record drift", async () => {
     const selectedRoot = await root();
     const inspection = await inspectAdoptionProject(selectedRoot, noGit);
+    const moduleCatalog = await catalog();
     const selectedPlan = await createAdoptionPlan(inspection, {
       projectId: "existing-app",
       projectName: "Existing App",
       flowerVersion: "0.1.0",
-      modules: ["auth"]
+      modules: ["auth"],
+      moduleCatalog
     });
-    await expect(applyAdoptionPlan(selectedPlan, await applicationOptions())).rejects.toEqual(
-      expect.objectContaining({ code: "adopt.selectionsNotApplicable" })
-    );
+    await expect(applyAdoptionPlan(selectedPlan, await applicationOptions({
+      moduleCatalog,
+      hooks: { afterComposition: () => { throw new Error("injected outer failure"); } }
+    }))).rejects.toEqual(expect.objectContaining({ code: "adopt.rolledBack" }));
+    await expect(readFile(path.join(selectedRoot, "src", "flower", "auth.ts"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(path.join(selectedRoot, ".flower", "project.json"))).rejects.toMatchObject({ code: "ENOENT" });
+
+    const adapterRoot = await root();
+    await rm(path.join(adapterRoot, "AGENTS.md"));
+    const adapterInspection = await inspectAdoptionProject(adapterRoot, noGit);
+    const preliminary = await createAdoptionPlan(adapterInspection, {
+      projectId: "existing-app", projectName: "Existing App", flowerVersion: "0.1.0"
+    });
+    const metadata = createAdoptionMetadataDocuments({ ...preliminary, adapters: ["codex"] });
+    const adapterProject = JSON.parse(metadata.find(({ path: documentPath }) => documentPath === ".flower/project.json")!.contents) as ProjectManifest;
+    const adapterOwnership = JSON.parse(metadata.find(({ path: documentPath }) => documentPath === ".flower/ownership.json")!.contents) as OwnershipManifest;
+    const adapterBundle = createAgentAdapterBundle({
+      project: adapterProject,
+      ownership: adapterOwnership,
+      workflows: [{ schemaVersion: 1, id: "feature", version: 1, description: "Fixture", inputs: [], steps: [] }],
+      architecturePolicyPaths: [],
+      decisionPaths: [],
+      notesPath: "docs/agent-notes.md"
+    });
+    const adapterPlan = await createAdoptionPlan(adapterInspection, {
+      projectId: "existing-app",
+      projectName: "Existing App",
+      flowerVersion: "0.1.0",
+      adapters: ["codex"],
+      adapterBundle
+    });
+    await expect(applyAdoptionPlan(adapterPlan, await applicationOptions({
+      adapterBundle,
+      adapterStateSchema: await json(path.join(repositoryRoot, "schemas", "adapter-state", "v1.json")),
+      hooks: { afterComposition: () => { throw new Error("injected adapter outer failure"); } }
+    }))).rejects.toEqual(expect.objectContaining({ code: "adopt.rolledBack" }));
+    await expect(readFile(path.join(adapterRoot, "AGENTS.md"))).rejects.toMatchObject({ code: "ENOENT" });
+    await expect(readFile(path.join(adapterRoot, ".flower", "project.json"))).rejects.toMatchObject({ code: "ENOENT" });
 
     const driftRoot = await root();
     const driftPlan = await plan(driftRoot);
