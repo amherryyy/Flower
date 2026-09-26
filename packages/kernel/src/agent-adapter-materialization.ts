@@ -29,7 +29,7 @@ export class AgentAdapterMaterializationError extends Error {
   }
 }
 
-function bundleDigest(bundle: AgentAdapterBundle): string {
+export function agentAdapterBundleDigest(bundle: AgentAdapterBundle): string {
   return sha256(JSON.stringify({
     stateDigest: bundle.stateDigest,
     artifacts: bundle.artifacts.map(({ adapter, path: artifactPath, generatorVersion, inputDigest, outputDigest }) => ({
@@ -248,7 +248,7 @@ export async function createAgentAdapterMaterializationPlan(
     command: "adapter-materialize",
     state: actions.length === 0 ? "unchanged" : "apply",
     projectRoot,
-    bundleDigest: bundleDigest(bundle),
+    bundleDigest: agentAdapterBundleDigest(bundle),
     actions
   });
 }
@@ -332,7 +332,7 @@ export async function applyAgentAdapterMaterializationPlan(
 ): Promise<AgentAdapterMaterializationResult> {
   verifyAgentAdapterMaterializationPlan(plan);
   assertBundle(bundle);
-  if (bundleDigest(bundle) !== plan.bundleDigest) {
+  if (agentAdapterBundleDigest(bundle) !== plan.bundleDigest) {
     throw new AgentAdapterMaterializationError("Agent adapter bundle changed after planning", "adapter.bundleChanged");
   }
   const currentPlan = await createAgentAdapterMaterializationPlan(plan.projectRoot, bundle, stateSchema);

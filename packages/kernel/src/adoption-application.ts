@@ -1,7 +1,9 @@
-import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { adoptionPlanIdentity, classifyAdoptionProject, createAdoptionMetadataDocuments, verifyAdoptionPlan } from "./adoption-plan.js";
+import { agentAdapterBundleDigest, applyAgentAdapterMaterializationPlan, createAgentAdapterMaterializationPlan } from "./agent-adapter-materialization.js";
 import { createJournalEntry, writeLocalJournal } from "./journal.js";
+import { applyModuleAddPlan, createModuleAddPlan } from "./module-add.js";
 import { validateOwnershipManifest } from "./ownership.js";
 import { sha256 } from "./template.js";
 import type {
@@ -21,6 +23,8 @@ interface AdoptionRecord {
   stack: AdoptionStack;
   modules: string[];
   adapters: AdoptionPlan["adapters"];
+  moduleComposition?: AdoptionPlan["moduleComposition"];
+  adapterComposition?: AdoptionPlan["adapterComposition"];
   classifications: AdoptionPathClassification[];
   excludedLocalRoots: string[];
   preconditions: AdoptionPlan["preconditions"];
@@ -100,6 +104,8 @@ export async function loadAppliedAdoptionPlan(projectRootInput: string): Promise
     stack: record.stack,
     modules: record.modules,
     adapters: record.adapters,
+    ...(record.moduleComposition ? { moduleComposition: record.moduleComposition } : {}),
+    ...(record.adapterComposition ? { adapterComposition: record.adapterComposition } : {}),
     classifications: record.classifications,
     excludedLocalRoots: record.excludedLocalRoots,
     metadata: [],
@@ -155,11 +161,11 @@ export async function applyAdoptionPlan(
   if (plan.state !== "apply" || plan.conflicts.length > 0) {
     throw new AdoptionApplicationError("Blocked adoption plans cannot be applied", "adopt.planBlocked");
   }
-  if (plan.modules.length > 0 || plan.adapters.length > 0) {
-    throw new AdoptionApplicationError(
-      "Selected modules and adapters require the upcoming adoption composition slice",
-      "adopt.selectionsNotApplicable"
-    );
+  if (plan.modules.length > 0 && (!plan.moduleComposition || !options.moduleCatalog)) {
+    throw new AdoptionApplicationError("Selected modules are missing verified composition inputs", "adopt.moduleCompositionMissing");
+  }
+  if (plan.adapters.length > 0 && (!plan.adapterComposition || !options.adapterBundle || !options.adapterStateSchema)) {
+    throw new AdoptionApplicationError("Selected adapters are missing verified composition inputs", "adopt.adapterCompositionMissing");
   }
   const root = path.resolve(plan.projectRoot);
   const rootDetails = await lstat(root);
@@ -191,6 +197,24 @@ export async function applyAdoptionPlan(
 
   const control = path.join(root, ".flower");
   const changedPaths = documents.map(({ path: documentPath }) => documentPath);
+  const externalCreatedPaths: string[] = [];
+  const missingDirectories = new Set<string>();
+  for (const relativePath of [
+    ...(plan.moduleComposition?.files.map(({ path: filePath }) => filePath) ?? []),
+    ...(plan.adapterComposition?.artifacts.map(({ path: artifactPath }) => artifactPath) ?? [])
+  ]) {
+    let current = path.dirname(path.join(root, ...relativePath.split("/")));
+    while (current !== root) {
+      try {
+        await lstat(current);
+        break;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+        missingDirectories.add(current);
+        current = path.dirname(current);
+      }
+    }
+  }
   const journalWriter = options.hooks?.writeJournal ?? writeLocalJournal;
   let controlCreated = false;
   try {
@@ -208,20 +232,77 @@ export async function applyAdoptionPlan(
       }
       await options.hooks?.afterWrite?.(document.path, index);
     }
+    if (plan.moduleComposition && options.moduleCatalog) {
+      const modulePlan = await createModuleAddPlan(root, plan.modules, options.moduleCatalog);
+      const actualComposition = {
+        requested: modulePlan.requested,
+        resolved: modulePlan.resolved,
+        packages: modulePlan.packages,
+        files: modulePlan.files
+      };
+      if (JSON.stringify(actualComposition) !== JSON.stringify(plan.moduleComposition)) {
+        throw new AdoptionApplicationError("Module composition changed after adoption planning", "adopt.moduleCompositionChanged");
+      }
+      const moduleResult = await applyModuleAddPlan(modulePlan, options.moduleCatalog);
+      externalCreatedPaths.push(...moduleResult.changedPaths.filter((changedPath) => !changedPath.startsWith(".flower/")));
+      changedPaths.push(...moduleResult.changedPaths);
+      await options.hooks?.afterComposition?.("modules");
+    }
+    if (plan.adapterComposition && options.adapterBundle && options.adapterStateSchema) {
+      if (agentAdapterBundleDigest(options.adapterBundle) !== plan.adapterComposition.bundleDigest) {
+        throw new AdoptionApplicationError("Adapter bundle changed after adoption planning", "adopt.adapterCompositionChanged");
+      }
+      const adapterPlan = await createAgentAdapterMaterializationPlan(root, options.adapterBundle, options.adapterStateSchema);
+      const expectedActions = [
+        ...plan.adapterComposition.artifacts.map(({ path: artifactPath, outputDigest }) => ({
+          kind: "create" as const,
+          path: artifactPath,
+          afterDigest: outputDigest
+        })),
+        { kind: "create" as const, path: plan.adapterComposition.statePath, afterDigest: plan.adapterComposition.stateDigest }
+      ].sort((left, right) => left.path.localeCompare(right.path));
+      const actualActions = [...adapterPlan.actions].sort((left, right) => left.path.localeCompare(right.path));
+      if (JSON.stringify(actualActions) !== JSON.stringify(expectedActions)) {
+        throw new AdoptionApplicationError("Adapter composition changed after adoption planning", "adopt.adapterCompositionChanged");
+      }
+      const adapterResult = await applyAgentAdapterMaterializationPlan(
+        adapterPlan,
+        options.adapterBundle,
+        options.adapterStateSchema
+      );
+      externalCreatedPaths.push(...adapterResult.changedPaths.filter((changedPath) => !changedPath.startsWith(".flower/")));
+      changedPaths.push(...adapterResult.changedPaths);
+      await options.hooks?.afterComposition?.("adapters");
+    }
+    const uniqueChangedPaths = [...new Set(changedPaths)];
     const journalPath = await journalWriter(root, createJournalEntry("flower adopt", "completed", {
       planId: plan.planId,
-      changedPaths,
-      result: { project: plan.project, packageManager: plan.packageManager }
+      changedPaths: uniqueChangedPaths,
+      result: { project: plan.project, packageManager: plan.packageManager, modules: plan.moduleComposition?.resolved ?? [], adapters: plan.adapters }
     }));
     await loadAppliedAdoptionPlan(root);
-    return { status: "completed", planId: plan.planId, projectRoot: root, changedPaths, journalPath };
+    return { status: "completed", planId: plan.planId, projectRoot: root, changedPaths: uniqueChangedPaths, journalPath };
   } catch (error) {
     let rollbackComplete = true;
+    for (const relativePath of [...externalCreatedPaths].reverse()) {
+      try {
+        await rm(path.join(root, ...relativePath.split("/")), { force: true });
+      } catch {
+        rollbackComplete = false;
+      }
+    }
     if (controlCreated) {
       try {
         await rm(control, { recursive: true, force: true });
       } catch {
         rollbackComplete = false;
+      }
+    }
+    for (const directory of [...missingDirectories].sort((left, right) => right.length - left.length)) {
+      try {
+        await rmdir(directory);
+      } catch (error) {
+        if (!["ENOENT", "ENOTEMPTY"].includes((error as NodeJS.ErrnoException).code ?? "")) rollbackComplete = false;
       }
     }
     if (!rollbackComplete) {

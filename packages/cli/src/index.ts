@@ -22,6 +22,7 @@ import {
   combineValidationResults,
   createInitPlan,
   createAdoptionPlan,
+  createAdoptionMetadataDocuments,
   createModuleAddPlan,
   createModuleDispositionPlan,
   createAgentAdapterMaterializationPlan,
@@ -42,7 +43,7 @@ import {
   type SecurityCheckResult,
   type ValidationResult
 } from "@flower/kernel";
-import { loadAgentAdapterCliContext, validateProjectAgentAdapters } from "./agent-adapters.js";
+import { loadAgentAdapterAdoptionContext, loadAgentAdapterCliContext, validateProjectAgentAdapters } from "./agent-adapters.js";
 
 const EXIT = {
   success: 0,
@@ -463,7 +464,7 @@ function printHelp(): void {
   process.stdout.write("  flower adopt <existing-project-path> --inspect [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> [--name <name>] [--id <id>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --dry-run [--name <name>] [--id <id>]\n");
-  process.stdout.write("               [--modules <ids>] [--adapters <ids>] [--json]\n");
+  process.stdout.write("               [--modules <ids>] [--adapters <ids>] [--catalog <path>] [--json]\n");
   process.stdout.write("  flower security check [--project <path>] [--json]\n");
   process.stdout.write("  flower adapters sync [--project <path>] [--dry-run] [--json]\n");
   process.stdout.write("  flower init <target> [--name <name>] [--id <id>] [--template next-supabase]\n");
@@ -740,7 +741,7 @@ async function main(): Promise<number> {
       process.stderr.write("flower adopt requires an existing project directory\n");
       return EXIT.invalidArguments;
     }
-    const allowed = args.inspect ? [] : ["name", "id", "modules", "adapters"];
+    const allowed = args.inspect ? [] : ["name", "id", "modules", "adapters", "catalog"];
     const unsupported = unsupportedValueOptions(args, allowed);
     if (unsupported.length > 0 || (args.inspect && args.dryRun) || !args.install || args.initializeGit) {
       const option = unsupported[0]
@@ -775,12 +776,48 @@ async function main(): Promise<number> {
         printAdoptionInspection(inspection, args.json);
         return EXIT.failure;
       }
-      const plan = await createAdoptionPlan(inspection, {
+      let moduleCatalog;
+      if (modules.length > 0) {
+        const [moduleSchema, migrationSchema] = await Promise.all([
+          loadJson(path.join(schemaRoot(), "module", "v1.json")),
+          loadJson(path.join(schemaRoot(), "migration", "v1.json"))
+        ]);
+        moduleCatalog = await loadModuleCatalog(
+          args.values.catalog ?? defaultModuleCatalogRoot(),
+          moduleSchema as object,
+          migrationSchema as object
+        );
+      }
+      const preliminaryPlan = await createAdoptionPlan(inspection, {
         projectId,
         projectName,
         flowerVersion: FLOWER_VERSION,
         modules,
-        adapters
+        adapters: [],
+        ...(moduleCatalog ? { moduleCatalog } : {})
+      });
+      let adapterContext;
+      const adapterOverlap = (adapters.includes("codex") && inspection.agentInstructions.includes("AGENTS.md")) ||
+        (adapters.includes("claude") && inspection.agentInstructions.includes("CLAUDE.md")) ||
+        (adapters.includes("github-actions") && inspection.ci.providers.includes("github-actions"));
+      if (adapters.length > 0 && !adapterOverlap) {
+        const source = { ...preliminaryPlan, adapters };
+        const metadata = createAdoptionMetadataDocuments(source);
+        const project = JSON.parse(metadata.find(({ path: documentPath }) => documentPath === ".flower/project.json")!.contents) as ProjectManifest;
+        project.modules = Object.fromEntries(
+          (preliminaryPlan.moduleComposition?.packages ?? []).map(({ id, version }) => [id, version])
+        );
+        const ownership = JSON.parse(metadata.find(({ path: documentPath }) => documentPath === ".flower/ownership.json")!.contents) as OwnershipManifest;
+        adapterContext = await loadAgentAdapterAdoptionContext(args.target, project, ownership);
+      }
+      const plan = adapters.length === 0 ? preliminaryPlan : await createAdoptionPlan(inspection, {
+        projectId,
+        projectName,
+        flowerVersion: FLOWER_VERSION,
+        modules,
+        adapters,
+        ...(moduleCatalog ? { moduleCatalog } : {}),
+        ...(adapterContext ? { adapterBundle: adapterContext.bundle } : {})
       });
       if (args.dryRun) {
         printAdoptionPlan(plan, args.json);
@@ -788,7 +825,9 @@ async function main(): Promise<number> {
       }
       const result = await applyAdoptionPlan(plan, {
         projectSchema: await loadJson(path.join(schemaRoot(), "project", "v1.json")) as object,
-        ownershipSchema: await loadJson(path.join(schemaRoot(), "ownership", "v1.json")) as object
+        ownershipSchema: await loadJson(path.join(schemaRoot(), "ownership", "v1.json")) as object,
+        ...(moduleCatalog ? { moduleCatalog } : {}),
+        ...(adapterContext ? { adapterBundle: adapterContext.bundle, adapterStateSchema: adapterContext.stateSchema } : {})
       });
       if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
       else process.stdout.write(`Adopted ${plan.project.name} at ${result.projectRoot}.\n`);

@@ -61,6 +61,28 @@ export interface AdoptionPlanOptions {
   flowerVersion: string;
   modules?: readonly string[];
   adapters?: readonly ("codex" | "claude" | "github-actions")[];
+  moduleCatalog?: readonly VerifiedModulePackage[];
+  adapterBundle?: AgentAdapterBundle;
+}
+
+export interface AdoptionModuleComposition {
+  requested: string[];
+  resolved: string[];
+  packages: Array<{ id: string; version: string; digest: string }>;
+  files: ModuleAddPlanFile[];
+}
+
+export interface AdoptionAdapterComposition {
+  bundleDigest: string;
+  statePath: string;
+  stateDigest: string;
+  artifacts: Array<{
+    adapter: AgentAdapterId;
+    path: string;
+    generatorVersion: string;
+    inputDigest: string;
+    outputDigest: string;
+  }>;
 }
 
 export interface AdoptionStack {
@@ -98,6 +120,8 @@ export interface AdoptionPlan {
   stack: AdoptionStack;
   modules: string[];
   adapters: ("codex" | "claude" | "github-actions")[];
+  moduleComposition?: AdoptionModuleComposition;
+  adapterComposition?: AdoptionAdapterComposition;
   classifications: AdoptionPathClassification[];
   excludedLocalRoots: string[];
   metadata: Array<{ path: string; digest: string }>;
@@ -110,12 +134,16 @@ export interface AdoptionPlan {
 
 export interface AdoptionApplicationHooks {
   afterWrite?(path: string, index: number): Promise<void> | void;
+  afterComposition?(kind: "modules" | "adapters"): Promise<void> | void;
   writeJournal?(projectRoot: string, entry: JournalEntry): Promise<string>;
 }
 
 export interface AdoptionApplicationOptions {
   projectSchema: object;
   ownershipSchema: object;
+  moduleCatalog?: readonly VerifiedModulePackage[];
+  adapterBundle?: AgentAdapterBundle;
+  adapterStateSchema?: object;
   hooks?: AdoptionApplicationHooks;
 }
 
