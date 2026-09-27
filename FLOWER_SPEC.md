@@ -719,6 +719,10 @@ CLAUDE.md
 - Agent memory and conversation caches are local and ignored by Git.
 - Flower must function without any AI adapter.
 
+### 19.2 Future project-experience extensions
+
+Curated skill packages, typed lifecycle and agent hooks, an optional Husky adapter, provenance-aware design references, and policy/consent scaffolding are specified for the proposed F12 phase in [Project Experience and Governance](docs/specifications/project-experience-and-governance.md). These extensions remain projections or project-owned artifacts over Flower's canonical manifests and workflow engine; they cannot create a parallel authority in agent prose or shell hooks.
+
 ## 20. Migration system
 
 Database changes use immutable, versioned migration units.
@@ -1109,9 +1113,21 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 
 **Exit criteria:** an independently maintained reference module and adapter pass the published conformance suite, install from a verified catalog, update reproducibly, and can be removed or ejected without corrupting a golden project.
 
+### Phase F12 — Project experience and governance
+
+- Curated, digest-verified agent skill packages with bounded capabilities and explicit provenance.
+- Typed workflow and agent lifecycle hooks plus an optional, cross-platform Husky adapter for local feedback.
+- A project-owned UI/UX inspiration registry with attribution, rights status, design reasoning, and accessibility notes.
+- Structured product and data facts, jurisdiction-profiled policy scaffolds, review state, policy versioning, and drift validation.
+- Optional terms-acceptance and cookie-consent contracts that fail closed for non-essential tracking.
+
+**Non-goals:** autonomous agent authority, unreviewed skill bundles, arbitrary shell hooks, replacing CI, copying third-party designs, providing legal advice, certifying compliance, or silently publishing changed policies.
+
+**Exit criteria:** verified skill and hook fixtures install and update transactionally; Husky and CI agree on required checks across supported platforms; design references fail closed on unknown reuse rights; policy fixtures for two materially different jurisdictions remain traceable to project facts and primary sources; consent tests prove that non-essential storage does not activate before a valid choice; and an external pilot passes the F12 exit audit.
+
 ### Post-F6 sequencing rule
 
-F7 through F11 are approved extensions to the original MVP roadmap. They are sequential framework phases, although an external pilot application may develop in parallel as a consumer. Pilot needs do not automatically become Flower features: a framework change requires a reusable contract, an architecture decision, and tests independent of the pilot repository. Each phase ends with an exit audit before the next phase is declared complete.
+F7 through F12 are approved extensions to the original MVP roadmap. They are sequential framework phases, although an external pilot application may develop in parallel as a consumer. Pilot needs do not automatically become Flower features: a framework change requires a reusable contract, an architecture decision, and tests independent of the pilot repository. Each phase ends with an exit audit before the next phase is declared complete.
 
 ## 30. First development decisions
 
