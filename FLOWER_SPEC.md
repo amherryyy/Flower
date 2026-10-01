@@ -1072,6 +1072,7 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 - Clean-machine `npx` or equivalent local invocation without cloning the Flower source repository.
 - Actionable interactive and JSON diagnostics, quick-start documentation, and upgrade guidance.
 - Installation and initialization smoke tests on Windows, macOS, and Linux.
+- Initial profile diagnostics for TypeScript, Next.js App Router, npm, Supabase, GitHub Actions, and Vercel; recognition of another stack is not a certification claim.
 
 **Non-goals:** a hosted control plane, a third-party marketplace, automatic production deployment, or compatibility claims for untested runtimes and package managers.
 
@@ -1084,6 +1085,7 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 - Approval-gated deployment planning and an initial web-host adapter, with immutable inputs and visible diffs.
 - Migration promotion, backup-readiness checks, post-deployment verification, and documented rollback limitations.
 - A real external pilot application exercising the released Flower packages and hosted integration.
+- End-to-end conformance for the initial certified TypeScript/Next.js/npm/Supabase/GitHub Actions/Vercel profile, including Windows development-host behavior, local-only fixtures, Auth and Storage integration proof, browser journeys, and configurable critical-route performance evidence.
 
 **Non-goals:** autonomous deployment, hidden production mutation, storing user secrets in Flower, broad multi-cloud coverage, or claiming provider portability without conformance evidence.
 
