@@ -650,6 +650,42 @@ export interface UpdatePlan {
   preconditions: UpdatePlanPreconditions;
 }
 
+export interface UpdateApplicationModuleDocument {
+  moduleId: string;
+  path: string;
+}
+
+export interface UpdateApplicationGeneratedSource {
+  path: string;
+  base?: string;
+  target?: string;
+}
+
+export interface UpdateApplicationHooks {
+  afterMutation?(path: string, index: number): void | Promise<void>;
+  writeJournal?(projectRoot: string, entry: JournalEntry): Promise<string>;
+}
+
+export interface UpdateApplicationOptions {
+  projectRoot: string;
+  manifestMigrations: readonly VersionedManifestMigrationDefinition[];
+  moduleMigrations: readonly ModuleUpdateMigrationDefinition[];
+  moduleDocuments?: readonly UpdateApplicationModuleDocument[];
+  generatedSources?: readonly UpdateApplicationGeneratedSource[];
+  approvals?: readonly string[];
+  generatedStatePath?: string;
+  runVerification?(command: UpdateVerificationCommand, projectRoot: string): Promise<void>;
+  hooks?: UpdateApplicationHooks;
+}
+
+export interface UpdateApplicationResult {
+  status: "completed" | "unchanged";
+  planId: string;
+  projectRoot: string;
+  changedPaths: string[];
+  journalPath?: string;
+}
+
 export interface VerifiedModuleArtifact {
   path: string;
   sourcePath: string;
