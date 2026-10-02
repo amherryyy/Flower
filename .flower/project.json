@@ -91,7 +91,9 @@
     "adoptionInspection": true,
     "adoptionPlanning": true,
     "transactionalAdoptionApplication": true,
-    "composedAdoption": true
+    "composedAdoption": true,
+    "persistedUpdatePlanStorage": true,
+    "updateCliOrchestration": true
   },
   "quality": {
     "minimumCoverage": 80,

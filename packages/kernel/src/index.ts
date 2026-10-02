@@ -29,6 +29,7 @@ export * from "./agent-adapter.js";
 export * from "./agent-adapter-materialization.js";
 export * from "./update-version.js";
 export * from "./update-plan.js";
+export * from "./update-plan-store.js";
 export * from "./update-application.js";
 export * from "./generated-text-merge.js";
 export * from "./metadata-migration.js";
