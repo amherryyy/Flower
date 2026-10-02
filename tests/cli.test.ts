@@ -512,6 +512,88 @@ describe("flower CLI", () => {
     expect(unsupportedFlag.stderr).toContain("Unsupported option for flower adapters sync: --skip-install");
   });
 
+  it("persists and applies an exact current-release update plan", () => {
+    const target = path.join(temporaryDirectory(), "update-project");
+    expect(run("init", target, "--name", "Update Project", "--skip-install").status).toBe(0);
+
+    const planned = run("update", "--plan", "--project", target, "--json");
+    expect(planned.status).toBe(0);
+    const output = JSON.parse(planned.stdout) as {
+      plan: { planId: string; state: string; currentVersion: string; targetVersion: string };
+      persisted: boolean;
+      persistedPath: string;
+    };
+    expect(output.persisted).toBe(true);
+    expect(output.plan).toEqual(expect.objectContaining({
+      state: "unchanged",
+      currentVersion: "0.1.0",
+      targetVersion: "0.1.0"
+    }));
+    expect(readFileSync(output.persistedPath, "utf8")).toContain(output.plan.planId);
+
+    const applied = run("update", "--apply", output.plan.planId, "--project", target, "--json");
+    expect(applied.status).toBe(0);
+    expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
+      result: expect.objectContaining({ status: "unchanged", planId: output.plan.planId })
+    }));
+  });
+
+  it("does not persist dry-run update plans and reports missing identities", () => {
+    const target = path.join(temporaryDirectory(), "update-dry-run");
+    expect(run("init", target, "--name", "Update Dry Run", "--skip-install").status).toBe(0);
+
+    const planned = run("update", "--plan", "--project", target, "--dry-run", "--json");
+    expect(planned.status).toBe(0);
+    const output = JSON.parse(planned.stdout) as { plan: { planId: string }; persisted: boolean };
+    expect(output.persisted).toBe(false);
+    expect(() => readFileSync(path.join(target, ".flower", "cache", "update-plans", `${output.plan.planId}.json`))).toThrow();
+
+    const applied = run("update", "--apply", output.plan.planId, "--project", target, "--json");
+    expect(applied.status).toBe(1);
+    expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ code: "update.planNotFound" }));
+  });
+
+  it("rejects stale and tampered persisted update plans", () => {
+    const target = path.join(temporaryDirectory(), "update-integrity");
+    expect(run("init", target, "--name", "Update Integrity", "--skip-install").status).toBe(0);
+
+    const first = JSON.parse(run("update", "--plan", "--project", target, "--json").stdout) as {
+      plan: { planId: string };
+      persistedPath: string;
+    };
+    const projectPath = path.join(target, ".flower", "project.json");
+    writeFileSync(projectPath, `${readFileSync(projectPath, "utf8")}\n`);
+    const stale = run("update", "--apply", first.plan.planId, "--project", target, "--json");
+    expect(stale.status).toBe(1);
+    expect(JSON.parse(stale.stdout)).toEqual(expect.objectContaining({ code: "update.projectChanged" }));
+
+    writeFileSync(projectPath, readFileSync(projectPath, "utf8").trimEnd() + "\n");
+    const second = JSON.parse(run("update", "--plan", "--project", target, "--json").stdout) as {
+      plan: { planId: string };
+      persistedPath: string;
+    };
+    const envelope = JSON.parse(readFileSync(second.persistedPath, "utf8")) as { plan: { targetVersion: string } };
+    envelope.plan.targetVersion = "9.9.9";
+    writeFileSync(second.persistedPath, `${JSON.stringify(envelope, null, 2)}\n`);
+    const tampered = run("update", "--apply", second.plan.planId, "--project", target, "--json");
+    expect(tampered.status).toBe(1);
+    expect(JSON.parse(tampered.stdout)).toEqual(expect.objectContaining({ code: "update.planCorrupt" }));
+  });
+
+  it("requires exactly one update mode", () => {
+    const missingMode = run("update", "--json");
+    expect(missingMode.status).toBe(2);
+    expect(missingMode.stderr).toContain("flower update --plan");
+
+    const conflictingModes = run("update", "--plan", "--apply", "update-0123456789abcdef");
+    expect(conflictingModes.status).toBe(2);
+    expect(conflictingModes.stderr).toContain("flower update --plan");
+
+    const wrongCommand = run("status", "--apply", "update-0123456789abcdef");
+    expect(wrongCommand.status).toBe(2);
+    expect(wrongCommand.stderr).toContain("Unsupported option for flower status: --apply");
+  });
+
   it("removes and ejects installed modules through the CLI", () => {
     const parent = temporaryDirectory();
     const target = path.join(parent, "disposition-project");

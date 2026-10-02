@@ -11,13 +11,17 @@ import {
   AgentAdapterMaterializationError,
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
+  LocalUpdatePlanStore,
   ModuleAddError,
   ModuleDispositionError,
+  UpdateApplicationError,
+  UpdatePlanStoreError,
   applyModuleDispositionPlan,
   applyModuleAddPlan,
   applyAgentAdapterMaterializationPlan,
   applyAdoptionPlan,
   applyInitPlan,
+  applyUpdatePlan,
   checkProjectSecurity,
   combineValidationResults,
   createInitPlan,
@@ -25,12 +29,15 @@ import {
   createAdoptionMetadataDocuments,
   createModuleAddPlan,
   createModuleDispositionPlan,
+  createUpdatePlan,
   createAgentAdapterMaterializationPlan,
   inspectAdoptionProject,
   loadAppliedAdoptionPlan,
   loadModuleCatalog,
   loadAndVerifyTemplate,
   projectSchemaVersion,
+  resolveFrameworkVersion,
+  sha256,
   spawnCommand,
   validateDocument,
   validateModuleManifest,
@@ -41,6 +48,7 @@ import {
   type OwnershipManifest,
   type ProjectManifest,
   type SecurityCheckResult,
+  type UpdatePlan,
   type ValidationResult
 } from "@flower/kernel";
 import { loadAgentAdapterAdoptionContext, loadAgentAdapterCliContext, validateProjectAgentAdapters } from "./agent-adapters.js";
@@ -60,6 +68,7 @@ interface ParsedArguments {
   version: boolean;
   help: boolean;
   dryRun: boolean;
+  plan: boolean;
   inspect: boolean;
   install: boolean;
   initializeGit: boolean;
@@ -74,8 +83,8 @@ interface DoctorCheck {
 }
 
 function parseArguments(argv: string[]): ParsedArguments {
-  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog", "--modules", "--adapters"]);
-  const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--inspect", "--skip-install", "--git"]);
+  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog", "--modules", "--adapters", "--apply"]);
+  const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--inspect", "--skip-install", "--git", "--plan"]);
   const values: Record<string, string> = {};
   const positional: string[] = [];
   const unknownOptions: string[] = [];
@@ -101,6 +110,7 @@ function parseArguments(argv: string[]): ParsedArguments {
     version: argv.includes("--version") || argv.includes("-v"),
     help: argv.includes("--help") || argv.includes("-h"),
     dryRun: argv.includes("--dry-run"),
+    plan: argv.includes("--plan"),
     inspect: argv.includes("--inspect"),
     install: !argv.includes("--skip-install"),
     initializeGit: argv.includes("--git"),
@@ -144,6 +154,31 @@ function commaSeparated(value: string | undefined): string[] {
 async function loadJson(filePath: string): Promise<unknown> {
   const content = await readFile(filePath, "utf8");
   return JSON.parse(content) as unknown;
+}
+
+async function createCurrentReleaseUpdatePlan(projectRootInput: string): Promise<UpdatePlan> {
+  const projectRoot = path.resolve(projectRootInput);
+  const controlRoot = path.join(projectRoot, ".flower");
+  const [projectBytes, lockBytes, ownershipBytes] = await Promise.all([
+    readFile(path.join(controlRoot, "project.json")),
+    readFile(path.join(controlRoot, "lock.json")),
+    readFile(path.join(controlRoot, "ownership.json"))
+  ]);
+  const project = JSON.parse(projectBytes.toString("utf8")) as ProjectManifest;
+  const resolution = resolveFrameworkVersion({
+    currentVersion: project.flower.version,
+    requestedVersion: project.flower.version,
+    channel: project.flower.channel,
+    releases: [{ version: project.flower.version, channel: project.flower.channel }]
+  });
+  return createUpdatePlan({
+    resolution,
+    preconditions: {
+      projectManifestDigest: sha256(projectBytes),
+      lockDigest: sha256(lockBytes),
+      ownershipDigest: sha256(ownershipBytes)
+    }
+  });
 }
 
 function sourceDiagnostic(code: string, filePath: string, error: unknown): ValidationResult {
@@ -461,6 +496,8 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
+  process.stdout.write("  flower update --plan [--project <path>] [--dry-run] [--json]\n");
+  process.stdout.write("  flower update --apply <plan-id> [--project <path>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --inspect [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> [--name <name>] [--id <id>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --dry-run [--name <name>] [--id <id>]\n");
@@ -494,6 +531,16 @@ async function main(): Promise<number> {
 
   if (args.inspect && args.command !== "adopt") {
     process.stderr.write(`Unsupported option for flower ${args.command}: --inspect\n`);
+    return EXIT.invalidArguments;
+  }
+
+  if (args.plan && args.command !== "update") {
+    process.stderr.write(`Unsupported option for flower ${args.command}: --plan\n`);
+    return EXIT.invalidArguments;
+  }
+
+  if (args.values.apply !== undefined && args.command !== "update") {
+    process.stderr.write(`Unsupported option for flower ${args.command}: --apply\n`);
     return EXIT.invalidArguments;
   }
 
@@ -715,6 +762,81 @@ async function main(): Promise<number> {
         process.stderr.write(`${error instanceof Error ? error.message : "Agent adapter synchronization failed"}\n`);
       }
       return error instanceof AgentAdapterMaterializationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
+    }
+  }
+
+  if (args.command === "update") {
+    const planId = args.values.apply;
+    const unsupported = unsupportedValueOptions(args, ["project", "apply"]);
+    if (unsupported.length > 0 || args.target || !args.install || args.initializeGit || (args.plan === Boolean(planId)) || (planId && args.dryRun)) {
+      const option = unsupported[0]
+        ? `--${unsupported[0]}`
+        : args.target
+          ? args.target
+          : !args.install
+            ? "--skip-install"
+            : args.initializeGit
+              ? "--git"
+              : planId && args.dryRun
+                ? "--dry-run"
+                : undefined;
+      if (option) process.stderr.write(`Unsupported option for flower update: ${option}\n`);
+      else process.stderr.write("Usage: flower update --plan [--project <path>] [--dry-run] [--json]\n       flower update --apply <plan-id> [--project <path>] [--json]\n");
+      return EXIT.invalidArguments;
+    }
+    const projectRoot = args.values.project ?? ".";
+    try {
+      const store = new LocalUpdatePlanStore(projectRoot);
+      if (args.plan) {
+        const plan = await createCurrentReleaseUpdatePlan(projectRoot);
+        const persistedPath = args.dryRun ? undefined : await store.save(plan);
+        if (args.json) {
+          process.stdout.write(`${JSON.stringify({
+            plan,
+            persisted: !args.dryRun,
+            ...(persistedPath ? { persistedPath } : {})
+          }, null, 2)}\n`);
+        } else {
+          process.stdout.write(`Update plan ${plan.planId} is ${plan.state}.\n`);
+          process.stdout.write(`Flower: ${plan.currentVersion} -> ${plan.targetVersion}\n`);
+          process.stdout.write(args.dryRun
+            ? "Dry run: the plan was not persisted.\n"
+            : `Persisted: ${persistedPath}\n`);
+        }
+        return EXIT.success;
+      }
+
+      const plan = await store.load(planId!);
+      if (!plan) {
+        throw new UpdatePlanStoreError(`Persisted update plan '${planId}' was not found`, "update.planNotFound");
+      }
+      if (plan.state !== "unchanged") {
+        throw new UpdatePlanStoreError(
+          "This persisted plan requires an update package that is unavailable in the current Flower release",
+          "update.packageUnavailable"
+        );
+      }
+      const result = await applyUpdatePlan(plan, {
+        projectRoot,
+        manifestMigrations: [],
+        moduleMigrations: []
+      });
+      if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
+      else process.stdout.write(`Project is already at Flower ${plan.targetVersion}; verified persisted plan ${plan.planId}.\n`);
+      return EXIT.success;
+    } catch (error) {
+      if (args.json) {
+        process.stdout.write(`${JSON.stringify({
+          schemaVersion: 1,
+          command: "update",
+          state: "blocked",
+          code: error instanceof UpdateApplicationError || error instanceof UpdatePlanStoreError ? error.code : "update.failed",
+          message: error instanceof Error ? error.message : "Update failed"
+        }, null, 2)}\n`);
+      } else {
+        process.stderr.write(`${error instanceof Error ? error.message : "Update failed"}\n`);
+      }
+      return error instanceof UpdateApplicationError && !error.rollbackComplete ? EXIT.partial : EXIT.failure;
     }
   }
 
