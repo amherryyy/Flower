@@ -526,6 +526,77 @@ export interface VersionResolution {
   diagnostics: Diagnostic[];
 }
 
+export interface ReleaseMigrationOperation {
+  op: "set" | "remove";
+  path: string[];
+  value?: unknown;
+}
+
+export interface ReleaseMigrationDocument {
+  schemaVersion: 1;
+  operations: ReleaseMigrationOperation[];
+}
+
+export interface ReleaseManifestMigrationArtifact {
+  id: string;
+  manifest: ManifestDocumentKind;
+  fromVersion: number;
+  toVersion: number;
+  source: string;
+  digest: string;
+}
+
+export interface ReleaseModuleMigrationArtifact {
+  id: string;
+  moduleId: string;
+  fromVersion: string;
+  toVersion: string;
+  documentPath: string;
+  source: string;
+  digest: string;
+}
+
+export interface ReleaseGeneratedFileArtifact {
+  path: string;
+  kind: "create" | "replace" | "merge" | "remove";
+  baseSource?: string;
+  baseDigest?: string;
+  targetSource?: string;
+  targetDigest?: string;
+}
+
+export interface ReleaseDatabaseMigrationArtifact extends UpdateDatabaseMigration {
+  source: string;
+}
+
+export interface ReleasePackageManifest {
+  $schema?: string;
+  schemaVersion: 1;
+  sourceVersion: string;
+  targetVersion: string;
+  channel: FlowerReleaseChannel;
+  manifestMigrations: ReleaseManifestMigrationArtifact[];
+  moduleMigrations: ReleaseModuleMigrationArtifact[];
+  generatedFiles: ReleaseGeneratedFileArtifact[];
+  dependencyChanges: UpdateDependencyChange[];
+  databaseMigrations: ReleaseDatabaseMigrationArtifact[];
+  requiredApprovals: UpdateRequirement[];
+  verificationCommands: UpdateVerificationCommand[];
+  rollbackLimitations: UpdateRequirement[];
+}
+
+export interface VerifiedReleasePackage {
+  root: string;
+  manifestPath: string;
+  manifestDigest: string;
+  digest: string;
+  manifest: ReleasePackageManifest;
+  manifestMigrations: VersionedManifestMigrationDefinition[];
+  moduleMigrations: ModuleUpdateMigrationDefinition[];
+  moduleDocuments: UpdateApplicationModuleDocument[];
+  generatedSources: UpdateApplicationGeneratedSource[];
+}
+
 export interface UpdateDependencyChange {
   name: string;
   kind: "add" | "update" | "remove";
