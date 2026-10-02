@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://flower.dev/schemas/release-package/v1.json",
+  "title": "Flower Release Package Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "sourceVersion",
+    "targetVersion",
+    "channel",
+    "manifestMigrations",
+    "moduleMigrations",
+    "generatedFiles",
+    "dependencyChanges",
+    "databaseMigrations",
+    "requiredApprovals",
+    "verificationCommands",
+    "rollbackLimitations"
+  ],
+  "properties": {
+    "$schema": { "type": "string", "format": "uri-reference" },
+    "schemaVersion": { "const": 1 },
+    "sourceVersion": { "$ref": "#/$defs/semver" },
+    "targetVersion": { "$ref": "#/$defs/semver" },
+    "channel": { "enum": ["stable", "preview", "development"] },
+    "manifestMigrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "manifest", "fromVersion", "toVersion", "source", "digest"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "manifest": { "enum": ["project", "lock", "ownership"] },
+          "fromVersion": { "type": "integer", "minimum": 0 },
+          "toVersion": { "type": "integer", "minimum": 1 },
+          "source": { "$ref": "#/$defs/source" },
+          "digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "moduleMigrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "moduleId", "fromVersion", "toVersion", "documentPath", "source", "digest"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "moduleId": { "$ref": "#/$defs/id" },
+          "fromVersion": { "$ref": "#/$defs/semver" },
+          "toVersion": { "$ref": "#/$defs/semver" },
+          "documentPath": { "$ref": "#/$defs/projectPath" },
+          "source": { "$ref": "#/$defs/source" },
+          "digest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "generatedFiles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "kind"],
+        "properties": {
+          "path": { "$ref": "#/$defs/projectPath" },
+          "kind": { "enum": ["create", "replace", "merge", "remove"] },
+          "baseSource": { "$ref": "#/$defs/source" },
+          "baseDigest": { "$ref": "#/$defs/digest" },
+          "targetSource": { "$ref": "#/$defs/source" },
+          "targetDigest": { "$ref": "#/$defs/digest" }
+        }
+      }
+    },
+    "dependencyChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "kind"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 214 },
+          "kind": { "enum": ["add", "update", "remove"] },
+          "fromVersion": { "type": "string", "minLength": 1 },
+          "toVersion": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "databaseMigrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "moduleId", "moduleVersion", "source", "digest", "destructive"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "moduleId": { "$ref": "#/$defs/id" },
+          "moduleVersion": { "$ref": "#/$defs/semver" },
+          "source": { "$ref": "#/$defs/source" },
+          "digest": { "$ref": "#/$defs/digest" },
+          "destructive": { "enum": ["none", "review", "destructive"] }
+        }
+      }
+    },
+    "requiredApprovals": { "$ref": "#/$defs/requirements" },
+    "verificationCommands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "command"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "command": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "rollbackLimitations": { "$ref": "#/$defs/requirements" }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$", "minLength": 2, "maxLength": 100 },
+    "semver": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[0-9A-Za-z.-]+)?$" },
+    "digest": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+    "source": { "type": "string", "pattern": "^\\./(?!.*(?:^|/)\\.\\.(?:/|$)).+" },
+    "projectPath": { "type": "string", "minLength": 1, "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$" },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "description": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    }
+  }
+}

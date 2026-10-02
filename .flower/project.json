@@ -93,7 +93,9 @@
     "transactionalAdoptionApplication": true,
     "composedAdoption": true,
     "persistedUpdatePlanStorage": true,
-    "updateCliOrchestration": true
+    "updateCliOrchestration": true,
+    "verifiedReleasePackages": true,
+    "declarativeUpdateMigrations": true
   },
   "quality": {
     "minimumCoverage": 80,
