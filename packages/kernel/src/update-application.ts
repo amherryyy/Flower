@@ -324,6 +324,9 @@ async function verifyPreconditions(plan: UpdatePlan, options: UpdateApplicationO
     }
     checks.push([options.generatedStatePath, plan.preconditions.generatedStateDigest]);
   }
+  if (plan.preconditions.releasePackageDigest && options.releasePackageDigest !== plan.preconditions.releasePackageDigest) {
+    throw new UpdateApplicationError("Release package changed after update planning", "update.releasePackageChanged");
+  }
   for (const [relativePath, digest] of checks) {
     requireDigest(await readRegularFile(root, relativePath), digest, `Update precondition '${relativePath}'`);
   }

@@ -171,6 +171,7 @@ function normalizePreconditions(input: UpdatePlanPreconditions): UpdatePlanPreco
   assertDigest(input.lockDigest, "Lock digest");
   assertDigest(input.ownershipDigest, "Ownership digest");
   assertDigest(input.generatedStateDigest, "Generated state digest", false);
+  assertDigest(input.releasePackageDigest, "Release package digest", false);
   return { ...input };
 }
 
