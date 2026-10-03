@@ -1,0 +1,46 @@
+{
+  "$schema": "../../../schemas/skill/v1.json",
+  "schemaVersion": 1,
+  "id": "flower/understand-project",
+  "version": "1.0.0",
+  "purpose": "Establish verified Flower project context before an agent proposes engineering work.",
+  "entrypoint": "SKILL.md",
+  "compatibleFlower": {
+    "minimum": "0.1.0",
+    "maximumExclusive": "0.2.0"
+  },
+  "adapters": [
+    "codex",
+    "claude"
+  ],
+  "capabilities": {
+    "reads": [
+      ".flower/*.json",
+      "README.md",
+      "FLOWER_SPEC.md",
+      "docs/**/*.md",
+      "packages/**",
+      "schemas/**",
+      "tests/**",
+      ".git"
+    ],
+    "writes": [],
+    "network": false,
+    "externalEffects": [],
+    "approvals": []
+  },
+  "provenance": {
+    "kind": "first-party",
+    "source": "flower-framework",
+    "revision": "bundled:0.1.0",
+    "author": "Flower maintainers",
+    "license": "UNLICENSED"
+  },
+  "files": [
+    {
+      "path": "SKILL.md",
+      "bytes": 2261,
+      "digest": "sha256:5fc538dce49fd1c2af6e514a4a8711ac4d70cae6802454df4809edbd8e13c4f9"
+    }
+  ]
+}

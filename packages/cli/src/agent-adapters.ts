@@ -192,7 +192,12 @@ async function sourcePaths(root: string, realRoot: string): Promise<{
   architecturePolicyPaths: string[];
   decisionPaths: string[];
 }> {
-  const directPolicies = ["FLOWER_SPEC.md", "FLOWER_ARCHITECTURE_AUDIT.md", "docs/PROJECT_CONTEXT.md"];
+  const directPolicies = [
+    "FLOWER_SPEC.md",
+    "FLOWER_AGENTIC_SPEC.md",
+    "FLOWER_ARCHITECTURE_AUDIT.md",
+    "docs/PROJECT_CONTEXT.md"
+  ];
   const existingPolicies: string[] = [];
   for (const candidate of directPolicies) {
     if (await optionalRegularFile(root, realRoot, candidate)) existingPolicies.push(candidate);

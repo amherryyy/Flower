@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed for Phase F12. This document defines contracts and acceptance criteria only; it does not claim that the capability is implemented.
+The complete capability remains proposed for Phase F12. ADR 0047 implements only a bounded, repository-local agentic foundation: a verified skill-package loader, one inspect-only first-party skill, and generated agent instructions. Remote catalogs, third-party installation, hooks, Husky, design governance, and policy/consent scaffolding remain unimplemented.
 
 ## 1. Purpose
 

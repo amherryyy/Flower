@@ -4,10 +4,16 @@
   "generatorVersion": "1.1.0",
   "artifacts": [
     {
+      "adapter": "codex",
+      "path": "AGENTS.md",
+      "inputDigest": "sha256:902aa522aa977a1deafa8032b1f33eb45d353e21de5c67f3302e85a224e0564b",
+      "outputDigest": "sha256:5abd85cb094519427629b7f30057b4bfbf78ca36743df0f3392a2edf45eee543"
+    },
+    {
       "adapter": "github-actions",
       "path": ".github/workflows/flower-generated.yml",
-      "inputDigest": "sha256:24f19f7dc4096d2cd4aeb58114fbd3a6fcad3cf63ed326e8d68a286894b739b9",
-      "outputDigest": "sha256:9dd5e3a5d996121912dabdc1e55e1779f1f29d65b3b0788c7d9b63791ffe8b99"
+      "inputDigest": "sha256:952ee9447c8235b578dea162931834b6465150821125a1ca52746a845ac5223a",
+      "outputDigest": "sha256:92c070730f03374c46c0ac085d7c93dcfce3162b85abeaa956abe32b21f42c0f"
     }
   ]
 }
