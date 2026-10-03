@@ -55,7 +55,7 @@ Prefer skills over subagents. Use another agent only when independent reasoning 
 
 Flower does not automatically create separate architect, frontend, backend, database, test, security, documentation, or deployment agents. Specialization initially comes from small reusable procedures.
 
-## 4. Authority model
+## Authority model
 
 The following order is authoritative:
 
