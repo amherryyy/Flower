@@ -98,7 +98,8 @@
     "declarativeUpdateMigrations": true,
     "releasePackageUpdatePlanning": true,
     "verifiedAgentSkills": true,
-    "boundedAgenticEngineering": true
+    "boundedAgenticEngineering": true,
+    "agenticFeaturePlanning": true
   },
   "quality": {
     "minimumCoverage": 80,
