@@ -683,6 +683,7 @@ export interface UpdatePlanPreconditions {
   lockDigest: string;
   ownershipDigest: string;
   generatedStateDigest?: string;
+  releasePackageDigest?: string;
 }
 
 export interface UpdatePlanInput {
@@ -745,6 +746,7 @@ export interface UpdateApplicationOptions {
   generatedSources?: readonly UpdateApplicationGeneratedSource[];
   approvals?: readonly string[];
   generatedStatePath?: string;
+  releasePackageDigest?: string;
   runVerification?(command: UpdateVerificationCommand, projectRoot: string): Promise<void>;
   hooks?: UpdateApplicationHooks;
 }

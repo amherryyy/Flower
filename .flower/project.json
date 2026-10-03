@@ -95,7 +95,8 @@
     "persistedUpdatePlanStorage": true,
     "updateCliOrchestration": true,
     "verifiedReleasePackages": true,
-    "declarativeUpdateMigrations": true
+    "declarativeUpdateMigrations": true,
+    "releasePackageUpdatePlanning": true
   },
   "quality": {
     "minimumCoverage": 80,
