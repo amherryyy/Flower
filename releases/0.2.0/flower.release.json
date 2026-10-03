@@ -1,0 +1,65 @@
+{
+  "$schema": "../../schemas/release-package/v1.json",
+  "schemaVersion": 1,
+  "sourceVersion": "0.1.0",
+  "targetVersion": "0.2.0",
+  "channel": "stable",
+  "manifestMigrations": [
+    {
+      "id": "project-v1-v2",
+      "manifest": "project",
+      "fromVersion": 1,
+      "toVersion": 2,
+      "source": "./migrations/project-v1-v2.json",
+      "digest": "sha256:d80822664fcf413c6428b8e8d9703631429e70b2f78ced67e5149d0e4672093c"
+    },
+    {
+      "id": "lock-v1-v2",
+      "manifest": "lock",
+      "fromVersion": 1,
+      "toVersion": 2,
+      "source": "./migrations/lock-v1-v2.json",
+      "digest": "sha256:bb8b95c721c315d23a82974b181347e4dbb9112e4455ead77e2afe6234d31547"
+    }
+  ],
+  "moduleMigrations": [
+    {
+      "id": "auth-v1-v1-1",
+      "moduleId": "auth",
+      "fromVersion": "1.0.0",
+      "toVersion": "1.1.0",
+      "documentPath": ".flower/auth.json",
+      "source": "./migrations/auth-v1-v1.1.json",
+      "digest": "sha256:4caf069f77204f3a8bc8d94fe31ee70a1650ba0bbc3797dcd5ca901dbc68ec9a"
+    },
+    {
+      "id": "auth-v1-1-v2",
+      "moduleId": "auth",
+      "fromVersion": "1.1.0",
+      "toVersion": "2.0.0",
+      "documentPath": ".flower/auth.json",
+      "source": "./migrations/auth-v1.1-v2.json",
+      "digest": "sha256:c1371fc562f57838b453b287b1190b26bc2b1b7b7e3557d2edf7b2c84646b57f"
+    }
+  ],
+  "generatedFiles": [
+    {
+      "path": "src/flower/runtime.ts",
+      "kind": "merge",
+      "baseSource": "./generated/runtime-base.ts",
+      "baseDigest": "sha256:2e60ed1d5936d4aaf6eaa0f78844206dde0a37e74688557ffb9fad9b674cc23d",
+      "targetSource": "./generated/runtime-target.ts",
+      "targetDigest": "sha256:4f08578c14a8f8a0d5a661a226c3782a5a0cc9b725c5985b70dca1bb6183ce86"
+    }
+  ],
+  "dependencyChanges": [],
+  "databaseMigrations": [],
+  "requiredApprovals": [
+    {
+      "id": "framework-update",
+      "description": "Apply the reviewed Flower 0.1.0 to 0.2.0 filesystem update"
+    }
+  ],
+  "verificationCommands": [],
+  "rollbackLimitations": []
+}

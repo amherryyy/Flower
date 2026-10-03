@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "operations": [
+    { "op": "set", "path": ["magicLink"], "value": true },
+    { "op": "set", "path": ["sessionDurationMinutes"], "value": 60 },
+    { "op": "remove", "path": ["sessionMinutes"] }
+  ]
+}

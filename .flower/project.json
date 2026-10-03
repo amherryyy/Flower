@@ -99,6 +99,8 @@
     "releasePackageUpdatePlanning": true,
     "localReleasePackageRecovery": true,
     "releasePackageCliApplication": true,
+    "repositoryReleasePackage": true,
+    "phaseF7ExitCriteriaVerified": true,
     "verifiedAgentSkills": true,
     "boundedAgenticEngineering": true,
     "agenticFeaturePlanning": true

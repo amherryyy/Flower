@@ -200,12 +200,27 @@ describe("F7 transactional update application", () => {
     await expect(applyUpdatePlan(await plan(approvalRoot), options(approvalRoot, { approvals: [] })))
       .rejects.toMatchObject({ code: "update.approvalMissing" });
 
-    const unsupportedRoot = await fixture();
-    const unsupportedPlan = await plan(unsupportedRoot, {
-      dependencyChanges: [{ name: "@flower/kernel", kind: "update", fromVersion: "0.1.0", toVersion: "0.2.0" }]
-    });
-    await expect(applyUpdatePlan(unsupportedPlan, options(unsupportedRoot)))
-      .rejects.toMatchObject({ code: "update.unsupportedEffect" });
+    for (const effects of [
+      {
+        dependencyChanges: [{ name: "@flower/kernel", kind: "update" as const, fromVersion: "0.1.0", toVersion: "0.2.0" }]
+      },
+      {
+        databaseMigrations: [{
+          id: "auth-v2-schema",
+          moduleId: "auth",
+          moduleVersion: "2.0.0",
+          digest: sha256("auth-v2-schema"),
+          destructive: "none" as const
+        }]
+      }
+    ]) {
+      const unsupportedRoot = await fixture();
+      const securityBefore = await text(unsupportedRoot, ".flower/security.json");
+      const unsupportedPlan = await plan(unsupportedRoot, effects);
+      await expect(applyUpdatePlan(unsupportedPlan, options(unsupportedRoot)))
+        .rejects.toMatchObject({ code: "update.unsupportedEffect" });
+      expect(await text(unsupportedRoot, ".flower/security.json")).toBe(securityBefore);
+    }
 
     const ownershipRoot = await fixture();
     const owned = await text(ownershipRoot, "src/domain/listing.ts");

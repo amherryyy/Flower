@@ -1,5 +1,6 @@
 {
   "schemaVersion": 2,
+  "mode": "project",
   "project": {
     "id": "upgrade-fixture",
     "name": "Upgrade Fixture"
@@ -7,6 +8,11 @@
   "flower": {
     "version": "0.2.0",
     "channel": "stable"
+  },
+  "stack": {
+    "language": "typescript",
+    "runtime": "node",
+    "packageManager": "npm"
   },
   "modules": {
     "auth": "2.0.0"
