@@ -184,9 +184,8 @@ The direction is successful only when independent fixtures demonstrate all of th
 
 ## Recommended next Flower iteration
 
-The next implementation iteration should remain F7, not receive a new phase name. Its bounded goal is:
+The next implementation iteration should remain F7, not receive a new phase name. ADR 0046 narrows the bounded goal to transactional filesystem effects and explicitly defers package-manager and hosted database mutation to their later certified boundaries:
 
 > Transactionally apply one real pilot-derived framework update—including a protected metadata migration and a generated security-baseline change—with dry-run evidence, stale-plan rejection, rollback, recovery, and unchanged project-owned bytes.
 
 That slice addresses the most consequential pilot blocker and creates the delivery mechanism needed by every later certified profile. After its tests and exit audit pass, F8 can package the workflow and make the clean-machine developer experience concrete.
-

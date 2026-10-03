@@ -1060,10 +1060,11 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 - Dry-run, JSON, approval, journal, rollback, recovery, and idempotency behavior for `flower adopt`.
 - User-facing `flower update --plan` and `flower update --apply <plan-id>` orchestration over the verified F6 resolver, plan, merge, and migration contracts.
 - Reviewed merges for existing CI and agent instructions; unresolved overlaps remain blocking conflicts.
+- Release-package dependency and database effects remain visible in plans but fail closed. F7 does not execute them automatically; dependency execution belongs to a later package-manager integration and hosted database execution remains within F9's explicit environment and approval boundary.
 
 **Non-goals:** rewriting arbitrary project code, silently replacing existing CI or agent instructions, pushing remotes, deploying environments, or applying production database changes without a separate explicit approval boundary.
 
-**Exit criteria:** representative existing projects can be adopted reproducibly without changing pre-existing project-owned bytes by default, and a planned 0.1-to-0.2 update applies transactionally, rejects stale state, recovers from injected failures, and produces the same verified result on every supported platform.
+**Exit criteria:** representative existing projects can be adopted reproducibly without changing pre-existing project-owned bytes by default, and one real package-bound 0.1-to-0.2 filesystem update applies transactionally in the certified development profile, rejects stale state, rolls back injected filesystem failures, preserves project-owned bytes, and produces a repeatable verified result. Dependency and database effects must be reported as explicit unsupported effects rather than executed.
 
 ### Phase F8 — Packaging, releases, and developer experience
 
@@ -1130,6 +1131,8 @@ The MVP deliberately excludes AI chat, scheduling, billing, analytics, BIR, mark
 ### Post-F6 sequencing rule
 
 F7 through F12 are approved extensions to the original MVP roadmap. They are sequential framework phases, although an external pilot application may develop in parallel as a consumer. Pilot needs do not automatically become Flower features: a framework change requires a reusable contract, an architecture decision, and tests independent of the pilot repository. Each phase ends with an exit audit before the next phase is declared complete.
+
+Bounded agentic-engineering assets may evolve across phases because Flower already supports deterministic agent adapters and scoped workflows. Early assets must remain repository-local, declarative, inspect-only by default, and subordinate to the kernel's ownership, approval, and effect boundaries. Verified third-party skill installation, lifecycle hooks, Husky integration, catalogs, and distribution remain F12 work and cannot be claimed by an earlier phase.
 
 ## 30. First development decisions
 

@@ -62,12 +62,22 @@
       "policy": "package-managed"
     },
     {
+      "pattern": "agentic/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
       "pattern": "templates/**",
       "owner": "framework",
       "policy": "package-managed"
     },
     {
       "pattern": "docs/**",
+      "owner": "project",
+      "policy": "never-overwrite"
+    },
+    {
+      "pattern": "FLOWER_AGENTIC_SPEC.md",
       "owner": "project",
       "policy": "never-overwrite"
     },

@@ -759,6 +759,56 @@ export interface UpdateApplicationResult {
   journalPath?: string;
 }
 
+export type AgentSkillAdapter = "codex" | "claude";
+
+export interface AgentSkillManifestFile {
+  path: string;
+  bytes: number;
+  digest: string;
+}
+
+export interface AgentSkillManifest {
+  $schema?: string;
+  schemaVersion: 1;
+  id: string;
+  version: string;
+  purpose: string;
+  entrypoint: string;
+  compatibleFlower: {
+    minimum: string;
+    maximumExclusive?: string;
+  };
+  adapters: AgentSkillAdapter[];
+  capabilities: {
+    reads: string[];
+    writes: string[];
+    network: boolean;
+    externalEffects: string[];
+    approvals: string[];
+  };
+  provenance: {
+    kind: "first-party" | "third-party";
+    source: string;
+    revision: string;
+    author: string;
+    license: string;
+  };
+  files: AgentSkillManifestFile[];
+}
+
+export interface VerifiedAgentSkillFile extends AgentSkillManifestFile {
+  sourcePath: string;
+}
+
+export interface VerifiedAgentSkillPackage {
+  root: string;
+  manifestPath: string;
+  manifestDigest: string;
+  manifest: AgentSkillManifest;
+  files: VerifiedAgentSkillFile[];
+  digest: string;
+}
+
 export interface VerifiedModuleArtifact {
   path: string;
   sourcePath: string;

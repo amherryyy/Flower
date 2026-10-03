@@ -96,7 +96,9 @@
     "updateCliOrchestration": true,
     "verifiedReleasePackages": true,
     "declarativeUpdateMigrations": true,
-    "releasePackageUpdatePlanning": true
+    "releasePackageUpdatePlanning": true,
+    "verifiedAgentSkills": true,
+    "boundedAgenticEngineering": true
   },
   "quality": {
     "minimumCoverage": 80,
@@ -104,6 +106,7 @@
     "requireSecurityCheck": true
   },
   "adapters": {
+    "codex": true,
     "githubActions": true
   }
 }
