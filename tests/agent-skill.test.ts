@@ -8,7 +8,8 @@ import {
 } from "../packages/kernel/src/index.js";
 
 const temporaryDirectories: string[] = [];
-const bundledRoot = path.resolve("agentic/skills/understand-project");
+const understandProjectRoot = path.resolve("agentic/skills/understand-project");
+const planFeatureRoot = path.resolve("agentic/skills/plan-feature");
 
 afterEach(async () => {
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
@@ -22,15 +23,15 @@ async function copyBundledSkill(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), "flower-agent-skill-"));
   temporaryDirectories.push(root);
   await Promise.all([
-    copyFile(path.join(bundledRoot, "skill.json"), path.join(root, "skill.json")),
-    copyFile(path.join(bundledRoot, "SKILL.md"), path.join(root, "SKILL.md"))
+    copyFile(path.join(understandProjectRoot, "skill.json"), path.join(root, "skill.json")),
+    copyFile(path.join(understandProjectRoot, "SKILL.md"), path.join(root, "SKILL.md"))
   ]);
   return root;
 }
 
 describe("bounded agent skill packages", () => {
   it("loads the bundled inspect-only project understanding skill", async () => {
-    const skill = await loadAndVerifyAgentSkill(bundledRoot, await schema(), "0.1.0", "codex");
+    const skill = await loadAndVerifyAgentSkill(understandProjectRoot, await schema(), "0.1.0", "codex");
 
     expect(skill.manifest.id).toBe("flower/understand-project");
     expect(skill.manifest.capabilities).toEqual(expect.objectContaining({
@@ -41,6 +42,19 @@ describe("bounded agent skill packages", () => {
     }));
     expect(skill.files.map((file) => file.path)).toEqual(["SKILL.md"]);
     expect(skill.digest).toMatch(/^sha256:[a-f0-9]{64}$/);
+  });
+
+  it("loads the bundled inspect-only feature planning skill", async () => {
+    const skill = await loadAndVerifyAgentSkill(planFeatureRoot, await schema(), "0.1.0", "claude");
+
+    expect(skill.manifest.id).toBe("flower/plan-feature");
+    expect(skill.manifest.capabilities).toEqual(expect.objectContaining({
+      writes: [],
+      network: false,
+      externalEffects: [],
+      approvals: []
+    }));
+    expect(await readFile(skill.files[0]!.sourcePath, "utf8")).toContain("QUICK, STANDARD, or CRITICAL");
   });
 
   it("rejects content drift and undeclared files", async () => {
@@ -57,7 +71,7 @@ describe("bounded agent skill packages", () => {
   });
 
   it("rejects incompatible Flower versions before exposing instructions", async () => {
-    await expect(loadAndVerifyAgentSkill(bundledRoot, await schema(), "0.2.0", "codex"))
+    await expect(loadAndVerifyAgentSkill(understandProjectRoot, await schema(), "0.2.0", "codex"))
       .rejects.toMatchObject<Partial<AgentSkillError>>({ code: "skill.incompatibleFlower" });
   });
 });
