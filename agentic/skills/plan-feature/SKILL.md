@@ -3,7 +3,7 @@
 ## Metadata
 
 - Skill: `flower/plan-feature`
-- Version: `1.0.0`
+- Version: `1.0.1`
 - Mode: inspect-only planning
 - Typical routing: STANDARD or CRITICAL
 
@@ -47,7 +47,7 @@ Do not load unrelated packages, every decision, all skills, or complete Git hist
 6. Choose the smallest design that reuses existing contracts and avoids a parallel abstraction.
 7. Define ordered steps, each with an independently checkable result.
 8. Define deterministic verification and acceptance criteria.
-9. Identify approvals, effects, rollback limits, unresolved choices, and stop conditions.
+9. Identify approvals, effects, rollback limits, unresolved choices, and stop conditions. For every required approval, name its evidence path and keep artifact selection distinct from approval of consequential effects.
 10. Separate current work from deferred improvements.
 
 ## Guardrails

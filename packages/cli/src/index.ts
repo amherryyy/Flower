@@ -11,9 +11,13 @@ import {
   AgentAdapterMaterializationError,
   InitializationError,
   LATEST_PROJECT_SCHEMA_VERSION,
+  LocalReleasePackageStore,
   LocalUpdatePlanStore,
   ModuleAddError,
   ModuleDispositionError,
+  ReleasePackageError,
+  ReleasePackageStoreError,
+  ReleaseUpdatePlanningError,
   UpdateApplicationError,
   UpdatePlanStoreError,
   applyModuleDispositionPlan,
@@ -29,11 +33,13 @@ import {
   createAdoptionMetadataDocuments,
   createModuleAddPlan,
   createModuleDispositionPlan,
+  createReleasePackageUpdatePlan,
   createUpdatePlan,
   createAgentAdapterMaterializationPlan,
   inspectAdoptionProject,
   loadAppliedAdoptionPlan,
   loadModuleCatalog,
+  loadAndVerifyReleasePackage,
   loadAndVerifyTemplate,
   projectSchemaVersion,
   resolveFrameworkVersion,
@@ -83,7 +89,7 @@ interface DoctorCheck {
 }
 
 function parseArguments(argv: string[]): ParsedArguments {
-  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog", "--modules", "--adapters", "--apply"]);
+  const valueOptions = new Set(["--name", "--id", "--template", "--package-manager", "--project", "--catalog", "--modules", "--adapters", "--apply", "--release-package", "--approve"]);
   const flagOptions = new Set(["--json", "--version", "-v", "--help", "-h", "--dry-run", "--inspect", "--skip-install", "--git", "--plan"]);
   const values: Record<string, string> = {};
   const positional: string[] = [];
@@ -496,8 +502,8 @@ function printHelp(): void {
   process.stdout.write("  flower validate [project-or-json-path] [--json]\n");
   process.stdout.write("  flower doctor [project-path] [--json]\n");
   process.stdout.write("  flower status [project-path] [--json]\n");
-  process.stdout.write("  flower update --plan [--project <path>] [--dry-run] [--json]\n");
-  process.stdout.write("  flower update --apply <plan-id> [--project <path>] [--json]\n");
+  process.stdout.write("  flower update --plan [--release-package <path>] [--project <path>] [--dry-run] [--json]\n");
+  process.stdout.write("  flower update --apply <plan-id> [--approve <ids>] [--project <path>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --inspect [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> [--name <name>] [--id <id>] [--json]\n");
   process.stdout.write("  flower adopt <existing-project-path> --dry-run [--name <name>] [--id <id>]\n");
@@ -767,8 +773,11 @@ async function main(): Promise<number> {
 
   if (args.command === "update") {
     const planId = args.values.apply;
-    const unsupported = unsupportedValueOptions(args, ["project", "apply"]);
-    if (unsupported.length > 0 || args.target || !args.install || args.initializeGit || (args.plan === Boolean(planId)) || (planId && args.dryRun)) {
+    const releasePackagePath = args.values["release-package"];
+    const approvals = commaSeparated(args.values.approve);
+    const unsupported = unsupportedValueOptions(args, ["project", "apply", "release-package", "approve"]);
+    if (unsupported.length > 0 || args.target || !args.install || args.initializeGit || (args.plan === Boolean(planId)) ||
+        (planId && args.dryRun) || (planId && releasePackagePath) || (args.plan && approvals.length > 0)) {
       const option = unsupported[0]
         ? `--${unsupported[0]}`
         : args.target
@@ -779,22 +788,51 @@ async function main(): Promise<number> {
               ? "--git"
               : planId && args.dryRun
                 ? "--dry-run"
+                : planId && releasePackagePath
+                  ? "--release-package"
+                  : args.plan && approvals.length > 0
+                    ? "--approve"
                 : undefined;
       if (option) process.stderr.write(`Unsupported option for flower update: ${option}\n`);
-      else process.stderr.write("Usage: flower update --plan [--project <path>] [--dry-run] [--json]\n       flower update --apply <plan-id> [--project <path>] [--json]\n");
+      else process.stderr.write("Usage: flower update --plan [--release-package <path>] [--project <path>] [--dry-run] [--json]\n       flower update --apply <plan-id> [--approve <ids>] [--project <path>] [--json]\n");
       return EXIT.invalidArguments;
     }
     const projectRoot = args.values.project ?? ".";
     try {
       const store = new LocalUpdatePlanStore(projectRoot);
+      const packageStore = new LocalReleasePackageStore(projectRoot);
       if (args.plan) {
-        const plan = await createCurrentReleaseUpdatePlan(projectRoot);
+        let plan: UpdatePlan;
+        let cachedPackagePath: string | undefined;
+        if (releasePackagePath) {
+          const [releaseSchema, migrationSchema, projectSchema, ownershipSchema] = await Promise.all([
+            loadJson(path.join(schemaRoot(), "release-package", "v1.json")),
+            loadJson(path.join(schemaRoot(), "update-migration", "v1.json")),
+            loadJson(path.join(schemaRoot(), "project", "v1.json")),
+            loadJson(path.join(schemaRoot(), "ownership", "v1.json"))
+          ]);
+          const release = await loadAndVerifyReleasePackage(releasePackagePath, releaseSchema as object, migrationSchema as object);
+          plan = await createReleasePackageUpdatePlan(projectRoot, release, {
+            projectSchema: projectSchema as object,
+            ownershipSchema: ownershipSchema as object
+          });
+          if (!args.dryRun) {
+            cachedPackagePath = await packageStore.save(release);
+            const cached = await loadAndVerifyReleasePackage(cachedPackagePath, releaseSchema as object, migrationSchema as object);
+            if (cached.digest !== release.digest) {
+              throw new ReleasePackageStoreError("Cached release package does not match the planned package", "update.packageCorrupt");
+            }
+          }
+        } else {
+          plan = await createCurrentReleaseUpdatePlan(projectRoot);
+        }
         const persistedPath = args.dryRun ? undefined : await store.save(plan);
         if (args.json) {
           process.stdout.write(`${JSON.stringify({
             plan,
             persisted: !args.dryRun,
-            ...(persistedPath ? { persistedPath } : {})
+            ...(persistedPath ? { persistedPath } : {}),
+            ...(cachedPackagePath ? { cachedPackagePath } : {})
           }, null, 2)}\n`);
         } else {
           process.stdout.write(`Update plan ${plan.planId} is ${plan.state}.\n`);
@@ -802,6 +840,7 @@ async function main(): Promise<number> {
           process.stdout.write(args.dryRun
             ? "Dry run: the plan was not persisted.\n"
             : `Persisted: ${persistedPath}\n`);
+          if (cachedPackagePath) process.stdout.write(`Cached release package: ${cachedPackagePath}\n`);
         }
         return EXIT.success;
       }
@@ -810,7 +849,21 @@ async function main(): Promise<number> {
       if (!plan) {
         throw new UpdatePlanStoreError(`Persisted update plan '${planId}' was not found`, "update.planNotFound");
       }
-      if (plan.state !== "unchanged") {
+      let release;
+      if (plan.preconditions.releasePackageDigest) {
+        const cachedRoot = await packageStore.loadRoot(plan.preconditions.releasePackageDigest);
+        if (!cachedRoot) {
+          throw new ReleasePackageStoreError("The exact release package used for planning is unavailable", "update.packageNotFound");
+        }
+        const [releaseSchema, migrationSchema] = await Promise.all([
+          loadJson(path.join(schemaRoot(), "release-package", "v1.json")),
+          loadJson(path.join(schemaRoot(), "update-migration", "v1.json"))
+        ]);
+        release = await loadAndVerifyReleasePackage(cachedRoot, releaseSchema as object, migrationSchema as object);
+        if (release.digest !== plan.preconditions.releasePackageDigest) {
+          throw new ReleasePackageStoreError("Cached release package changed after planning", "update.packageCorrupt");
+        }
+      } else if (plan.state !== "unchanged") {
         throw new UpdatePlanStoreError(
           "This persisted plan requires an update package that is unavailable in the current Flower release",
           "update.packageUnavailable"
@@ -818,11 +871,19 @@ async function main(): Promise<number> {
       }
       const result = await applyUpdatePlan(plan, {
         projectRoot,
-        manifestMigrations: [],
-        moduleMigrations: []
+        manifestMigrations: release?.manifestMigrations ?? [],
+        moduleMigrations: release?.moduleMigrations ?? [],
+        ...(release ? {
+          moduleDocuments: release.moduleDocuments,
+          generatedSources: release.generatedSources,
+          releasePackageDigest: release.digest
+        } : {}),
+        approvals
       });
       if (args.json) process.stdout.write(`${JSON.stringify({ plan, result }, null, 2)}\n`);
-      else process.stdout.write(`Project is already at Flower ${plan.targetVersion}; verified persisted plan ${plan.planId}.\n`);
+      else process.stdout.write(result.status === "unchanged"
+        ? `Project is already at Flower ${plan.targetVersion}; verified persisted plan ${plan.planId}.\n`
+        : `Updated project to Flower ${plan.targetVersion} with persisted plan ${plan.planId}.\n`);
       return EXIT.success;
     } catch (error) {
       if (args.json) {
@@ -830,7 +891,9 @@ async function main(): Promise<number> {
           schemaVersion: 1,
           command: "update",
           state: "blocked",
-          code: error instanceof UpdateApplicationError || error instanceof UpdatePlanStoreError ? error.code : "update.failed",
+          code: error instanceof UpdateApplicationError || error instanceof UpdatePlanStoreError ||
+            error instanceof ReleasePackageError || error instanceof ReleasePackageStoreError ||
+            error instanceof ReleaseUpdatePlanningError ? error.code : "update.failed",
           message: error instanceof Error ? error.message : "Update failed"
         }, null, 2)}\n`);
       } else {

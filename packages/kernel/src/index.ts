@@ -32,6 +32,7 @@ export * from "./update-version.js";
 export * from "./update-plan.js";
 export * from "./update-plan-store.js";
 export * from "./release-package.js";
+export * from "./release-package-store.js";
 export * from "./release-update-plan.js";
 export * from "./update-application.js";
 export * from "./generated-text-merge.js";
