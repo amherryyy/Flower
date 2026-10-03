@@ -67,6 +67,11 @@
       "policy": "package-managed"
     },
     {
+      "pattern": "releases/**",
+      "owner": "framework",
+      "policy": "package-managed"
+    },
+    {
       "pattern": "templates/**",
       "owner": "framework",
       "policy": "package-managed"

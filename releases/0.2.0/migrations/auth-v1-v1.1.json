@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "operations": [
+    { "op": "set", "path": ["sessionMinutes"], "value": 60 }
+  ]
+}
