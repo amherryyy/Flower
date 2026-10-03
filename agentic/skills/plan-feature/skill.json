@@ -2,7 +2,7 @@
   "$schema": "../../../schemas/skill/v1.json",
   "schemaVersion": 1,
   "id": "flower/plan-feature",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "purpose": "Produce a bounded, risk-classified, and independently verifiable implementation plan for a Flower feature.",
   "entrypoint": "SKILL.md",
   "compatibleFlower": {
@@ -37,8 +37,8 @@
   "files": [
     {
       "path": "SKILL.md",
-      "bytes": 3676,
-      "digest": "sha256:dbc628a9389d70582773cb9ade637c07988be8c88393ab72cdbeb05f12266ed3"
+      "bytes": 3805,
+      "digest": "sha256:eb142c7fa5bebfbcce157de471aa5ff1d6e0faebff2a2cbab8430bc2e6d14567"
     }
   ]
 }

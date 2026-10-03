@@ -97,6 +97,8 @@
     "verifiedReleasePackages": true,
     "declarativeUpdateMigrations": true,
     "releasePackageUpdatePlanning": true,
+    "localReleasePackageRecovery": true,
+    "releasePackageCliApplication": true,
     "verifiedAgentSkills": true,
     "boundedAgenticEngineering": true,
     "agenticFeaturePlanning": true

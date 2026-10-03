@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { sha256, type ReleasePackageManifest } from "../packages/kernel/src/index.js";
 
 const root = path.resolve(import.meta.dirname, "..");
 const cli = path.join(root, "packages", "cli", "dist", "index.js");
@@ -30,6 +31,42 @@ function enableAdapters(projectRoot: string, adapters: Record<string, boolean>):
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as { adapters?: Record<string, boolean> };
   manifest.adapters = adapters;
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
+function releasePackageFixture(): string {
+  const directory = temporaryDirectory();
+  const migrations = {
+    project: `${JSON.stringify({ schemaVersion: 1, operations: [
+      { op: "set", path: ["schemaVersion"], value: 2 },
+      { op: "set", path: ["flower", "version"], value: "0.2.0" }
+    ] }, null, 2)}\n`,
+    lock: `${JSON.stringify({ schemaVersion: 1, operations: [
+      { op: "set", path: ["lockVersion"], value: 2 },
+      { op: "set", path: ["flowerVersion"], value: "0.2.0" }
+    ] }, null, 2)}\n`
+  };
+  mkdirSync(path.join(directory, "migrations"));
+  writeFileSync(path.join(directory, "migrations", "project.json"), migrations.project);
+  writeFileSync(path.join(directory, "migrations", "lock.json"), migrations.lock);
+  const manifest: ReleasePackageManifest = {
+    schemaVersion: 1,
+    sourceVersion: "0.1.0",
+    targetVersion: "0.2.0",
+    channel: "stable",
+    manifestMigrations: [
+      { id: "project-v1-v2", manifest: "project", fromVersion: 1, toVersion: 2, source: "./migrations/project.json", digest: sha256(migrations.project) },
+      { id: "lock-v1-v2", manifest: "lock", fromVersion: 1, toVersion: 2, source: "./migrations/lock.json", digest: sha256(migrations.lock) }
+    ],
+    moduleMigrations: [],
+    generatedFiles: [],
+    dependencyChanges: [],
+    databaseMigrations: [],
+    requiredApprovals: [{ id: "framework-update", description: "Apply the reviewed framework update" }],
+    verificationCommands: [],
+    rollbackLimitations: []
+  };
+  writeFileSync(path.join(directory, "flower.release.json"), `${JSON.stringify(manifest, null, 2)}\n`);
+  return directory;
 }
 
 describe("flower CLI", () => {
@@ -551,6 +588,75 @@ describe("flower CLI", () => {
     const applied = run("update", "--apply", output.plan.planId, "--project", target, "--json");
     expect(applied.status).toBe(1);
     expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ code: "update.planNotFound" }));
+  });
+
+  it("plans, caches, approves, and applies an exact verified release package", () => {
+    const target = path.join(temporaryDirectory(), "package-update-project");
+    const release = releasePackageFixture();
+    expect(run("init", target, "--name", "Package Update", "--skip-install").status).toBe(0);
+
+    const planned = run("update", "--plan", "--release-package", release, "--project", target, "--json");
+    expect(planned.status).toBe(0);
+    const output = JSON.parse(planned.stdout) as {
+      plan: { planId: string; state: string; preconditions: { releasePackageDigest: string } };
+      persisted: boolean;
+      cachedPackagePath: string;
+    };
+    expect(output.persisted).toBe(true);
+    expect(output.plan.state).toBe("apply");
+    expect(output.plan.preconditions.releasePackageDigest).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(readFileSync(path.join(output.cachedPackagePath, "flower.release.json"), "utf8")).toContain('"targetVersion": "0.2.0"');
+
+    const unapproved = run("update", "--apply", output.plan.planId, "--project", target, "--json");
+    expect(unapproved.status).toBe(1);
+    expect(JSON.parse(unapproved.stdout)).toEqual(expect.objectContaining({ code: "update.approvalMissing" }));
+
+    const applied = run("update", "--apply", output.plan.planId, "--approve", "framework-update", "--project", target, "--json");
+    expect(applied.status).toBe(0);
+    expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({
+      result: expect.objectContaining({ status: "completed", planId: output.plan.planId })
+    }));
+    const project = JSON.parse(readFileSync(path.join(target, ".flower", "project.json"), "utf8")) as {
+      schemaVersion: number;
+      flower: { version: string };
+    };
+    expect(project.schemaVersion).toBe(2);
+    expect(project.flower.version).toBe("0.2.0");
+  });
+
+  it("keeps release-package dry runs ephemeral and fails closed when the cached package is missing", () => {
+    const dryRunTarget = path.join(temporaryDirectory(), "package-dry-run");
+    const release = releasePackageFixture();
+    expect(run("init", dryRunTarget, "--name", "Package Dry Run", "--skip-install").status).toBe(0);
+    const dryRun = run("update", "--plan", "--release-package", release, "--project", dryRunTarget, "--dry-run", "--json");
+    expect(dryRun.status).toBe(0);
+    expect(JSON.parse(dryRun.stdout)).toEqual(expect.objectContaining({ persisted: false }));
+    expect(existsSync(path.join(dryRunTarget, ".flower", "cache"))).toBe(false);
+
+    const target = path.join(temporaryDirectory(), "package-missing-cache");
+    expect(run("init", target, "--name", "Package Missing Cache", "--skip-install").status).toBe(0);
+    const planned = JSON.parse(run("update", "--plan", "--release-package", release, "--project", target, "--json").stdout) as {
+      plan: { planId: string };
+      cachedPackagePath: string;
+    };
+    rmSync(planned.cachedPackagePath, { recursive: true, force: true });
+    const applied = run("update", "--apply", planned.plan.planId, "--approve", "framework-update", "--project", target, "--json");
+    expect(applied.status).toBe(1);
+    expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ code: "update.packageNotFound" }));
+  });
+
+  it("rejects a cached release package changed after planning", () => {
+    const target = path.join(temporaryDirectory(), "package-corrupt-cache");
+    const release = releasePackageFixture();
+    expect(run("init", target, "--name", "Package Corrupt Cache", "--skip-install").status).toBe(0);
+    const planned = JSON.parse(run("update", "--plan", "--release-package", release, "--project", target, "--json").stdout) as {
+      plan: { planId: string };
+      cachedPackagePath: string;
+    };
+    writeFileSync(path.join(planned.cachedPackagePath, "migrations", "project.json"), "changed\n");
+    const applied = run("update", "--apply", planned.plan.planId, "--approve", "framework-update", "--project", target, "--json");
+    expect(applied.status).toBe(1);
+    expect(JSON.parse(applied.stdout)).toEqual(expect.objectContaining({ code: "update.releaseDigestMismatch" }));
   });
 
   it("rejects stale and tampered persisted update plans", () => {
